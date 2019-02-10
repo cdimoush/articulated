@@ -7,15 +7,15 @@ When 0 is recieved motor calibrates and returns it's unique ID.
 #include <Stepper.h>
 #include <math.h>
 
-const int stepper_id = 0;
+const int stepper_id = 2;
 const int stepsPerRev = 200;
-Stepper motor(stepsPerRev, 2, 3, 4, 5);
+Stepper motor(stepsPerRev, 8, 9, 10, 11);
 
 
 void setup() 
 {
 	Serial.begin(9600);
-	motor.setSpeed(60);
+	motor.setSpeed(50);
 }
 
 void loop() 
@@ -61,8 +61,8 @@ void control_servo(int steps)
 	for(int i = 0; i < fabs(steps); i++)
 	{
 		motor.step(1 * dir);
-    Serial.println(1); //Tell computer that goal has been completed 
-		delay(5);
+    Serial.println(1); //Tell computer that motor has stepped
+		delay(10);
 
 	}
   Serial.println(0);

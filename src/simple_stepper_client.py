@@ -13,4 +13,4 @@ def stepper_driver_client(stepper_id, steps):
 		print "Client Call Failure"
 
 if __name__ == "__main__":
-	print "Service result = %s"%(stepper_driver_client(0, 200))
+	print "Service result = %s"%(stepper_driver_client(1, 100))

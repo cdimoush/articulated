@@ -1,0 +1,8 @@
+<launch>
+	<rosparam command="load" file="$(find articulated)/config/articulated_mechanism.yaml" ns="articulated" />
+	<node name="id" pkg="articulated" type="stepper_driver_id.py" output="screen"/>
+	<node name="stepper_server" pkg="articulated" type="stepper_driver_server.py" output="screen"/>
+	<node name="stepper_client" pkg="articulated" type="stepper_driver_client" output="screen"/>
+	<node name="mechanism" pkg="articulated" type="mechanism_calculations" output="screen"/>
+	<node name="gui" pkg="articulated" type="joint_publisher_gui.py" output="screen"/>
+</launch>

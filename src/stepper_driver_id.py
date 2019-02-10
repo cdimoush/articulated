@@ -53,10 +53,12 @@ def main():
 			if msg_in[0]:
 				rospy.loginfo('%s ID: %s', i, str(msg_in[1]))
 				#set param as full serial port name
-				param_name = 'articulated/stepper/' + str(msg_in[1])
+				param_name = 'articulated/stepper/' + str(msg_in[1]) + '/port'
 				rospy.set_param(param_name, device_folder_prefix + i)
 			else:
-				rospy.logerr('No ID recieved for %s', i)	
+				rospy.logerr('No ID recieved for %s', i)
+
+	rospy.set_param('articulated/stepper/status/id', True)	
 
 
 
