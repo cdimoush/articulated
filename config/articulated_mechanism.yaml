@@ -1,10 +1,10 @@
 link/1/length: 0.12 #THESE DIMENSIONS STILL NEED TO COMPARED WITH SLDPRT FILES!!!
 link/2/length: 0.14 #Length of link from joint to EE
 link/2/lever: 0.12  #Lenght of link from joint to link3
-link/3/length: 0.15
+link/3/length: 0.12
 stepper/status/id: false
 stepper/1/spr: -5370 #steps per revolution
 stepper/2/spr: -200
 stepper/2/x: -0.0525 #These are offsets from the servo 1 hub
 stepper/2/y: 0.035
-stepper/2/hub: 0.05 #radius (verify dimension)
+stepper/2/hub: 0.03 #radius (verify dimension)

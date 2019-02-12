@@ -1,15 +1,16 @@
 #include "ros/ros.h"
 #include "articulated/StepperDriver.h"
-
+#include "geometry_msgs/Pose.h"
+#include "sensor_msgs/JointState.h"
 #include <math.h>
 #include <eigen3/Eigen/Dense>
-
 
 
 class MechCalc
 {
 public:
 	MechCalc();
+	geometry_msgs::Pose forwardKinematics(double step_angle[2]);
 
 	struct Stepper
 	{
@@ -21,12 +22,12 @@ public:
 		double coord[2];
 	};
 
-
+	sensor_msgs::JointState joint_state_;
+	
 private:
 	//functions
-	void forwardKinematics();
 	void buildMech();
-
+	
 	//Objects
 	ros::NodeHandle nh_;
 

@@ -6,6 +6,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   geometry_msgs
+  sensor_msgs
   message_generation
 )
 
@@ -40,13 +41,13 @@ pkg_search_module(Eigen3 REQUIRED eigen3)
 ## Generate added messages and services with any dependencies listed here
  generate_messages(
    DEPENDENCIES
-   std_msgs geometry_msgs # Or other packages containing msgs
+   std_msgs geometry_msgs sensor_msgs # Or other packages containing msgs
  )
 
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES articulated
-  CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs
+  CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs sensor_msgs
   #message_runtime
   #DEPENDS system_lib
 )
@@ -56,13 +57,16 @@ include
 ${catkin_INCLUDE_DIRS}
 ${eigen3_INCLUDE_DIRS})
 
+add_library(mechanism_calculations src/mechanism_calculations.cpp)
+
 add_executable(stepper_driver_client src/stepper_driver_client.cpp)
 #add_dependencies(stepper_driver_client ${catkin_EXPORTED_TARGETS})
-target_link_libraries(stepper_driver_client ${catkin_LIBRARIES})
+target_link_libraries(stepper_driver_client ${catkin_LIBRARIES} ${eigen3_LIBRARIES} )
+target_link_libraries(stepper_driver_client mechanism_calculations)
 
-add_executable(mechanism_calculations src/mechanism_calculations.cpp)
-target_link_libraries(mechanism_calculations ${catkin_LIBRARIES} ${eigen3_LIBRARIES})
-add_dependencies(mechanism_calculations ${catkin_EXPORTED_TARGETS})
+#dd_executable(mechanism_calculations src/mechanism_calculations.cpp)
+#target_link_libraries(mechanism_calculations ${catkin_LIBRARIES} ${eigen3_LIBRARIES})
+#add_dependencies(mechanism_calculations ${catkin_EXPORTED_TARGETS})
 
 #############
 ## Install ##
