@@ -1,5 +1,5 @@
 #include "mechanism_calculations.h"
-#include "geometry_msgs/Transform.h"
+//#include "geometry_msgs/Transform.h"
 
 MechCalc::MechCalc()
 {
@@ -71,7 +71,7 @@ geometry_msgs::Pose MechCalc::forwardKinematics(double step_angle[2])
 	//Update Joints
 	joint_state_.position[0] = q[0];
 	joint_state_.position[1] = q[1];
-	ROS_ERROR("Joint States Updated");
+	
 
 	//Transform from 1 to 0
 	Eigen::MatrixXf t01(4, 4);

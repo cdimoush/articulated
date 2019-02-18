@@ -8,6 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   sensor_msgs
   message_generation
+  tf
 )
 
 find_package(PkgConfig)
@@ -64,6 +65,8 @@ add_executable(stepper_driver_client src/stepper_driver_client.cpp)
 target_link_libraries(stepper_driver_client ${catkin_LIBRARIES} ${eigen3_LIBRARIES} )
 target_link_libraries(stepper_driver_client mechanism_calculations)
 
+add_executable(articulated_tf_broadcaster src/articulated_tf_broadcaster.cpp)
+target_link_libraries(articulated_tf_broadcaster ${catkin_LIBRARIES} ${eigen3_LIBRARIES} )
 #dd_executable(mechanism_calculations src/mechanism_calculations.cpp)
 #target_link_libraries(mechanism_calculations ${catkin_LIBRARIES} ${eigen3_LIBRARIES})
 #add_dependencies(mechanism_calculations ${catkin_EXPORTED_TARGETS})

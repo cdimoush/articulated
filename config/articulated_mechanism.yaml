@@ -2,6 +2,11 @@ link/1/length: 0.12 #THESE DIMENSIONS STILL NEED TO COMPARED WITH SLDPRT FILES!!
 link/2/length: 0.14 #Length of link from joint to EE
 link/2/lever: 0.12  #Lenght of link from joint to link3
 link/3/length: 0.12
+joints: 2 #Number of Joints 
+joint/1/id: "joint1"
+joint/1/transform: 0.12 #same as link1 length
+joint/2/id: "joint2"
+joint/2/transform: 0.14 #same as link2 length
 stepper/status/id: false
 stepper/1/spr: -5370 #steps per revolution
 stepper/2/spr: -200
