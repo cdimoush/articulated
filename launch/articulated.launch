@@ -1,12 +1,14 @@
 <launch>
-	<arg name="launch_gui" default="true" />
+	<arg name="launch_gui" default="false" />
 	<arg name="launch_rviz" default="true" />
+	<arg name="model" default="$(find articulated)/urdf/articulated.urdf"/>
 
-
+	<param name="robot_description" command="$(find xacro)/xacro --inorder $(arg model)" />
 	<rosparam command="load" file="$(find articulated)/config/articulated_mechanism.yaml" ns="articulated" />
+	
 	<node name="gui" pkg="articulated" type="articulated_control_gui.py" output="screen" if="$(arg launch_gui)"/>
-	<node name="id" pkg="articulated" type="stepper_driver_id.py" output="screen"/>
-	<node name="stepper_server" pkg="articulated" type="stepper_driver_server.py" output="screen"/>
+	<!--<node name="id" pkg="articulated" type="stepper_driver_id.py" output="screen"/>
+	<node name="stepper_server" pkg="articulated" type="stepper_driver_server.py" output="screen"/>-->
 	<node name="stepper_client" pkg="articulated" type="stepper_driver_client" output="screen"/>
 	<node name="tf_broadcaster" pkg="articulated" type="articulated_tf_broadcaster" output="screen"/>
 	<node type="rviz" name="rviz" pkg="rviz" args="-d $(find articulated)/config/rviz_config.rviz" if="$(arg launch_rviz)" />
