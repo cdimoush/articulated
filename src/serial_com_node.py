@@ -53,6 +53,7 @@ class SerialCom:
 	_ser_com_list = []
 	def __init__(self):
 		#Name of serial device folder and potential names given to arduinos
+		rospy.loginfo('%s: Initializing', rospy.get_name())
 		device_folder_prefix = '/dev/tty'
 		names = ['ACM0', 'ACM1', 'ACM2', 'USB0', 'USB1', 'USB2', 'USB3', 'USB4', 'USB5']
 		rate=9600
@@ -61,7 +62,6 @@ class SerialCom:
 			#If device name exists it will be pinged for an ID. 
 			#NOTE: if an arduino is plugged in that is not apart of articulated robt it will still receive a msg
 			if os.path.exists(device_folder_prefix + i):
-				rospy.loginfo('Trying device %s', i)
 				port = device_folder_prefix + i
 				ser = SimpleSerial(port, rate, self.arduinoCb)
 				ser.publish("stepper_id", "")
@@ -74,6 +74,8 @@ class SerialCom:
 	def main(self):
 		#NOTE: Program assumes all arduinos will respond to the 'stepper_id' call
 		#This could lead to issues when more devices are connected to usb
+		rospy.loginfo('%s: Get IDs', rospy.get_name())
+		rospy.loginfo('%s: Trying %s devices', rospy.get_name(), str(len(self._port_id_attempts)))
 		while self._port_id_in_progress:
 			try:
 				for i in self._port_id_attempts:
@@ -84,7 +86,7 @@ class SerialCom:
 			except rospy.ROSInterruptException:
 				break
 
-		rospy.loginfo('ID process is complete')
+		rospy.loginfo('%s: ID complete', rospy.get_name())
 
 		while not rospy.is_shutdown():
 			for i in self._ser_com_list:
@@ -100,7 +102,7 @@ class SerialCom:
 		if self._port_id_attempts:
 			for i in self._port_id_attempts:
 				if port == i[0]:
-					rospy.loginfo('%s ID: %s', port, str(msg))
+					rospy.loginfo('%s: Stepper %s is on port %s', rospy.get_name(), str(msg), port)
 					param_name = 'articulated/stepper/' + str(msg) + '/port'
 					rospy.set_param(param_name, port)
 					self._ser_com_list.insert(int(msg), i[1])
@@ -110,5 +112,4 @@ class SerialCom:
 
 if __name__ == '__main__':
 	rospy.init_node('Serial_Com')
-	rospy.loginfo('Starting stepper_driver_id.py')
 	sc = SerialCom()
