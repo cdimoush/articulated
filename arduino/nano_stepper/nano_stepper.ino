@@ -1,13 +1,13 @@
 /*
-ROS Stepper motor control for arduino nano. Talks with PC via serial com.
-When 0 is recieved motor calibrates and returns it's unique ID.
+ROS Stepper motor control for arduino nano.
 */
 
-
+#include <simple_serial.h>
 #include <Stepper.h>
 #include <math.h>
 
-const int stepper_id = 2;
+SimpleSerial ser;
+const int stepper_id = 0;
 const int stepsPerRev = 200;
 Stepper motor(stepsPerRev, 8, 9, 10, 11);
 
@@ -15,36 +15,24 @@ Stepper motor(stepsPerRev, 8, 9, 10, 11);
 void setup() 
 {
 	Serial.begin(9600);
+	ser.subscribe("stepper_id", "empty", sendStepperId);
+	ser.subscribe("calibrate", "empty", calibrate);
+	ser.subscribe("set_step_goal", "int", setStepperPos);
+
 	motor.setSpeed(50);
 }
 
-void loop() 
+void sendStepperId()
 {
-	if (Serial.available())
-	{
-		String raw_incoming_msg = Serial.readString();
-		float incoming_msg = raw_incoming_msg.toFloat();
-    //delay(5);
-		if (incoming_msg == 0) //calibrate
-		{
-			calibrate();
-		}
-
-		else
-		{
-			control_servo(incoming_msg);
-		}
-	}
+	ser.publish("stepper_id", String(stepper_id));
 }
-
 
 void calibrate()
 {
-	Serial.println(stepper_id);
-	//should now move to limit switch and go through a calibration
+	delay(5);
 }
 
-void control_servo(int steps)
+void setStepperPos(int steps)
 {
 	//Determine cw or ccw rotation
 	int dir = 0;
@@ -61,9 +49,14 @@ void control_servo(int steps)
 	for(int i = 0; i < fabs(steps); i++)
 	{
 		motor.step(1 * dir);
-    Serial.println(1); //Tell computer that motor has stepped
+    	ser.publish("stepFeedback", String(i+1));
 		delay(10);
 
 	}
-  Serial.println(0);
+}
+
+void loop() 
+{
+	ser.spin();
+	delay(1);
 }
