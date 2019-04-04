@@ -1,5 +1,6 @@
 #include "ros/ros.h"
 #include "articulated/StepperDriver.h"
+#include "articulated/serial_msg.h"
 #include "mechanism_calculations.h"
 #include "std_msgs/Float64MultiArray.h"
 #include "std_msgs/Float64.h"
@@ -19,6 +20,7 @@ public:
 private:
   void setStepperCallback(std_msgs::Float64MultiArray goal);
   void stepperService(double g_rad, int s_id);
+  void serialCallback(articulated::serial_msg data);
 
   ros::NodeHandle nh_;
   ros::Subscriber stepper_angle_sub_;
@@ -26,6 +28,11 @@ private:
   ros::Publisher joint_state_pub_;
   ros::ServiceClient client_;
   MechCalc mech_;
+
+  //New Shit....
+  ros::Subscriber serial_sub_;
+  ros::Publisher serial_pub_;
+
   
   double stepper_angle_current_[2];
   geometry_msgs::Pose ee_pos_;
@@ -39,6 +46,11 @@ StepperDriverClient::StepperDriverClient()
   stepper_angle_sub_ = nh_.subscribe("articulated/set_stepper_angle", 1000, &StepperDriverClient::setStepperCallback, this);
   ee_pub_ = nh_.advertise<geometry_msgs::Pose>("articulated/ee_pos", 1000);
   joint_state_pub_ = nh_.advertise<sensor_msgs::JointState>("articulated/joint_state", 1000);
+
+  //New Shit.....
+  serial_sub_ = nh_.subscribe("articulated/serial/receive", 1000, &StepperDriverClient::serialCallback, this);
+  serial_pub_ = nh_.advertise<articulated::serial_msg>("articulated/serial/send", 1000);
+
 
   stepper_angle_current_[0] = M_PI/2;
   stepper_angle_current_[1] = 0;
@@ -55,9 +67,25 @@ StepperDriverClient::StepperDriverClient()
   }
 }
 
+void StepperDriverClient::serialCallback(articulated::serial_msg data)
+{
+  int i = data.micro_id;
+  std::stringstream s_steps (data.msg);
+  int steps;
+  s_steps >> steps;
+  std::stringstream string_id;
+  string_id << i+1;
+  double spr;
+  nh_.getParam("articulated/stepper/" + string_id.str() + "/spr", spr);
+  stepper_angle_current_[i] = stepper_angle_current_[i] + (steps/spr) * 2*M_PI; 
+  
+  ee_pos_ = mech_.forwardKinematics(stepper_angle_current_); 
+  ee_pub_.publish(ee_pos_);
+}
 void StepperDriverClient::setStepperCallback(std_msgs::Float64MultiArray goal)
 {
-  ROS_ERROR("a Step Goal was Recieved");
+  ROS_ERROR("a Step Goal was Received");
+  /*
   for (int i = 0; i<2; i++)
   {
     if (goal.data[i] != stepper_angle_current_[i])
@@ -71,6 +99,32 @@ void StepperDriverClient::setStepperCallback(std_msgs::Float64MultiArray goal)
 
   ee_pos_ = mech_.forwardKinematics(stepper_angle_current_); 
   ee_pub_.publish(ee_pos_);
+  */
+  for (int i = 0; i<2; i++)
+  {
+    if (goal.data[i] != stepper_angle_current_[i])
+    {
+      double g = goal.data[i] - stepper_angle_current_[i];
+      //Publish Step Goal in this funtion for the time being
+      
+      //spr is steps per revolution, the spr for each stepper is a param
+      double spr;
+      std::stringstream string_id;
+      std::stringstream g_string;
+      string_id << i+1;
+      nh_.getParam("articulated/stepper/" + string_id.str() + "/spr", spr);
+      int g_steps = round(g*spr/(2*M_PI));
+      g_string << g_steps;
+
+      articulated::serial_msg g_msg;
+      g_msg.micro_id = i;
+      g_msg.topic = "set_step_pos";
+      g_msg.msg = g_string.str();
+      serial_pub_.publish(g_msg);
+
+    }
+  }
+
 }
 
 void StepperDriverClient::stepperService(double g_rad, int s_id)

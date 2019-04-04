@@ -20,11 +20,10 @@ pkg_search_module(Eigen3 REQUIRED eigen3)
 
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+add_message_files(
+  FILES
+  serial_msg.msg
+)
 
 ## Generate services in the 'srv' folder
  add_service_files(

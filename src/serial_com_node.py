@@ -5,11 +5,14 @@ import rospy
 import time
 import serial
 
+from articulated.msg import serial_msg
+
 class SimpleSerial:
 	_read_in_progress = False
 	_read_mark_start = "<"
 	_read_mark_end = ">"
 	_input_buffer = ""
+	_id = 0
 
 	def __init__(self, port, rate, cb):
 		self.subscriber_cb = cb
@@ -19,6 +22,9 @@ class SimpleSerial:
 		self._ser.flushOutput()
 		self._ser.flushInput()
 		time.sleep(1.5)
+
+	def setID(self, micro_id):
+		self._id = micro_id
 		
 	def publish(self, topic, msg):
 		msg = "<" + topic + ":" + str(msg) + ">"
@@ -29,7 +35,7 @@ class SimpleSerial:
 		topic = s[0:split]
 		msg = s[split + 1:]
 
-		self.subscriber_cb(self._port, topic, msg)
+		self.subscriber_cb(self._port, self._id, topic, msg)
 
 	def spin(self):
 		if self._ser.inWaiting() != 0:
@@ -54,6 +60,10 @@ class SerialCom:
 	def __init__(self):
 		#Name of serial device folder and potential names given to arduinos
 		rospy.loginfo('%s: Initializing', rospy.get_name())
+
+		self._pub = rospy.Publisher('articulated/serial/receive', serial_msg, queue_size=10)
+		rospy.Subscriber('articulated/serial/send', serial_msg, self.sendMsgCallback)
+
 		device_folder_prefix = '/dev/tty'
 		names = ['ACM0', 'ACM1', 'ACM2', 'USB0', 'USB1', 'USB2', 'USB3', 'USB4', 'USB5']
 		rate=9600
@@ -94,20 +104,31 @@ class SerialCom:
 			rospy.Rate(100).sleep()
 
 
-	def arduinoCb(self, port, topic, msg):
+	def arduinoCb(self, port, m_id, topic, msg):
 		if topic == "stepper_id":
 			self.setStepperIdParams(port, topic, msg);
+		else:
+			receive_msg = serial_msg()
+			receive_msg.micro_id = m_id
+			receive_msg.topic = topic
+			receive_msg.msg = msg
+			self._pub.publish(receive_msg)
 
 	def setStepperIdParams(self, port, topic, msg):
 		if self._port_id_attempts:
+			micro_id = int(msg)
 			for i in self._port_id_attempts:
 				if port == i[0]:
-					rospy.loginfo('%s: Stepper %s is on port %s', rospy.get_name(), str(msg), port)
-					param_name = 'articulated/stepper/' + str(msg) + '/port'
-					rospy.set_param(param_name, port)
-					self._ser_com_list.insert(int(msg), i[1])
+					rospy.loginfo('%s: Stepper %s is on port %s', rospy.get_name(), msg, port)
+					#param_name = 'articulated/stepper/' + str(msg) + '/port'
+					#rospy.set_param(param_name, port)
+					self._ser_com_list.insert(micro_id, i[1])
+					i[1].setID(micro_id)
 
 					self._port_id_attempts.remove(i)
+
+	def sendMsgCallback(self, send_msg):
+		self._ser_com_list[send_msg.micro_id].publish(send_msg.topic, send_msg.msg)
 
 
 if __name__ == '__main__':

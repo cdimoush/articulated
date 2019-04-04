@@ -17,8 +17,9 @@ void setup()
 	Serial.begin(9600);
 	ser.subscribe("stepper_id", "empty", sendStepperId);
 	ser.subscribe("calibrate", "empty", calibrate);
-	ser.subscribe("set_step_goal", "int", setStepperPos);
+	ser.subscribe("set_step_pos", "int", setStepperPos);
 
+  pinMode(LED_BUILTIN, OUTPUT);
 	motor.setSpeed(50);
 }
 
@@ -29,7 +30,12 @@ void sendStepperId()
 
 void calibrate()
 {
-	delay(5);
+	digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on 
+  delay(500);                       // wait for half a second
+  digitalWrite(LED_BUILTIN, LOW);    // turn the LED off 
+  delay(500);
+
+  ser.publish("calibrate", "Calibration Complete!");
 }
 
 void setStepperPos(int steps)
@@ -49,7 +55,7 @@ void setStepperPos(int steps)
 	for(int i = 0; i < fabs(steps); i++)
 	{
 		motor.step(1 * dir);
-    	ser.publish("stepFeedback", String(i+1));
+    	ser.publish("step_feedback", String(i+1));
 		delay(10);
 
 	}
