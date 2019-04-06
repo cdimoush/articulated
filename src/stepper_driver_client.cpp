@@ -35,8 +35,8 @@ private:
 
   
   double stepper_angle_current_[2];
+  double stepper_angle_goal_[2];
   geometry_msgs::Pose ee_pos_;
-
 };
 
 
@@ -63,43 +63,34 @@ StepperDriverClient::StepperDriverClient()
   {
     joint_state_pub_.publish(mech_.joint_state_);
     ros::spinOnce();
-    ros::Duration(0.1).sleep();
+    ros::Duration(0.01).sleep();
   }
 }
 
 void StepperDriverClient::serialCallback(articulated::serial_msg data)
 {
   int i = data.micro_id;
-  std::stringstream s_steps (data.msg);
-  int steps;
-  s_steps >> steps;
   std::stringstream string_id;
   string_id << i+1;
+
+  int steps;
+  std::stringstream s_steps (data.msg);
+  s_steps >> steps;
+  ROS_ERROR_STREAM("Steps: " << steps);
+  
   double spr;
   nh_.getParam("articulated/stepper/" + string_id.str() + "/spr", spr);
-  stepper_angle_current_[i] = stepper_angle_current_[i] + (steps/spr) * 2*M_PI; 
-  
+  stepper_angle_current_[i] = stepper_angle_current_[i] + 2*M_PI * steps/(fabs(steps)*spr); 
+
+  //DEBUG
+  double angle_degree = stepper_angle_current_[i] * 180 / M_PI;
+  //ROS_ERROR_STREAM("Stepper " << i << " angle: " << angle_degree);
+
   ee_pos_ = mech_.forwardKinematics(stepper_angle_current_); 
   ee_pub_.publish(ee_pos_);
 }
 void StepperDriverClient::setStepperCallback(std_msgs::Float64MultiArray goal)
 {
-  ROS_ERROR("a Step Goal was Received");
-  /*
-  for (int i = 0; i<2; i++)
-  {
-    if (goal.data[i] != stepper_angle_current_[i])
-    {
-      double g = goal.data[i] - stepper_angle_current_[i];
-      stepperService(g, i+1);
-    }
-  }
-  //Calling Forward Kinematics here
-  //BUT I WANT TO INCLUDE IT WITH SERVICE in future
-
-  ee_pos_ = mech_.forwardKinematics(stepper_angle_current_); 
-  ee_pub_.publish(ee_pos_);
-  */
   for (int i = 0; i<2; i++)
   {
     if (goal.data[i] != stepper_angle_current_[i])
@@ -121,10 +112,9 @@ void StepperDriverClient::setStepperCallback(std_msgs::Float64MultiArray goal)
       g_msg.topic = "set_step_pos";
       g_msg.msg = g_string.str();
       serial_pub_.publish(g_msg);
-
+      ROS_ERROR_STREAM("sending stepper " << i + 1 << " goal of " << g_steps <<" steps");
     }
   }
-
 }
 
 void StepperDriverClient::stepperService(double g_rad, int s_id)

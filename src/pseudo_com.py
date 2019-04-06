@@ -24,6 +24,11 @@ class SerialCom:
 				for i in range(2):
 					x = self._stepper_goals[i] - self._stepper_states[i]
 					if x != 0: 
+						#Shorter Delay for stepper 1
+						if i == 0:
+							rospy.Rate(450).sleep()
+						if i == 1:
+							rospy.Rate(25).sleep()
 						if x > 0:
 							self._stepper_states[i] += 1
 						if x < 0:
@@ -34,14 +39,13 @@ class SerialCom:
 						receive_msg.topic = "step_feedback"
 						receive_msg.msg = str(self._stepper_states[i])
 						self._pub.publish(receive_msg)
-
-				rospy.Rate(10).sleep()
+					
 			else:
 				for i in range(2):
-					if self._stepper_states[i] > 0:
+					if self._stepper_states[i] != 0:
 						self._stepper_states[i] = 0
 						self._stepper_goals[i] = 0
-				rospy.Rate(100).sleep()
+				rospy.Rate(500).sleep()
 
 	def sendMsgCallback(self, send_msg):
 		if send_msg.topic == "set_step_pos":
