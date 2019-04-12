@@ -18,7 +18,7 @@ void MechCalc::buildMech()
 	nh_.getParam("/articulated/stepper/2/hub", stepper2_.hub);
 
 }
-geometry_msgs::Pose MechCalc::forwardKinematics(double step_angle[2])
+geometry_msgs::Pose MechCalc::getEEPose(double step_angle[2])
 {
 	//Do forward kinematics to get position of end effector
 	//Mechanism design is laid out in this function
@@ -50,10 +50,12 @@ geometry_msgs::Pose MechCalc::forwardKinematics(double step_angle[2])
 	double phi = acos((c*c + a*a - b*b)/(2*c*a));
 	double lamda = acos((c*c + b*b - a*a)/(2*c*b));
 	double gamma = asin((y1 - y3)/c);
+	//double theta = fabs(phi - gamma);
 	double theta = fabs(phi - gamma);
 	//theta is q1 in 0 frame, it must be in the 1 frame for transform math
 	//Check if theta is above or below horizontal
 	// Case 1: theta is below horizontal (or horizontal) bc end of link3 is above end of link1
+
 	if ((y3 + link3_*sin(lamda+gamma)) >= y1) 
 	{
 		q[1] = -1*(q[0] + theta);
@@ -72,6 +74,14 @@ geometry_msgs::Pose MechCalc::forwardKinematics(double step_angle[2])
 	joint_state_.position[0] = q[0];
 	joint_state_.position[1] = q[1];
 	
+	return forwardKinematics(joint_state_);
+}
+
+geometry_msgs::Pose MechCalc::forwardKinematics(sensor_msgs::JointState jt)
+{
+	double q[2];
+	q[0] = jt.position[0];
+	q[1] = jt.position[1];
 
 	//Transform from 1 to 0
 	Eigen::MatrixXf t01(4, 4);
@@ -88,5 +98,152 @@ geometry_msgs::Pose MechCalc::forwardKinematics(double step_angle[2])
 	ee_pos.position.x = ee0(0, 0);
 	ee_pos.position.y = ee0(1, 0);
 	//ee_pos.position.z = ee0(0, 0);
+
 	return ee_pos;
+}
+
+double * MechCalc::inverseKinematics(geometry_msgs::Pose ee_pos_goal, double step_angle[2])
+{
+	ROS_ERROR_STREAM("Start IK");
+	double q[2];
+	geometry_msgs::Pose ee_pos_current = forwardKinematics(joint_state_);
+	q[0] = joint_state_.position[0];
+	q[1] = joint_state_.position[1];
+
+	Eigen::VectorXd delta_theta(2);
+	Eigen::VectorXd delta_x(2);
+	Eigen::VectorXd delta_pos(2);
+	delta_pos[0] = ee_pos_goal.position.x - ee_pos_current.position.x;
+	delta_pos[1] = ee_pos_goal.position.y - ee_pos_current.position.y;
+	ROS_ERROR_STREAM("Delta x: "<< delta_pos[0]);
+	ROS_ERROR_STREAM("Delta y: "<< delta_pos[1]);
+	//Calc # of steps based on largest delta pos value
+	double step_size = 0.00005;
+	double delta_max = 0; 
+	int steps;
+	for (int i = 0; i < 2; i++)
+	{
+		
+		if (delta_pos[i] > delta_max)
+		{
+			delta_max = delta_pos[i];
+		}
+	}
+	steps = round(delta_max/step_size);
+	ROS_ERROR_STREAM("IK Steps: "<< steps);
+	//Calcs delta_x values
+	/*
+	for (int i = 0; i < 3; i++)
+	{
+		delta_x[i] = delta_pos[i]/steps;
+	}*/
+	delta_x = delta_pos / steps;
+	for (int i = 0; i < steps; i ++)
+	{
+		Eigen::MatrixXd j = buildJacobian(q);
+		//ROS_ERROR_STREAM(j);
+		Eigen::MatrixXd j_inv = j.transpose() * (j*j.transpose()).inverse();
+		//ROS_ERROR_STREAM(j_inv);
+		delta_theta = j_inv * delta_x;
+		q[0] += delta_theta[0];
+		q[1] += delta_theta[1];
+	}
+
+	sensor_msgs::JointState joint_state_goal;
+	joint_state_goal.position.resize(2);
+	joint_state_goal.position[0] = q[0];
+	joint_state_goal.position[1] = q[1];
+	double * step_angle_goal;
+	step_angle_goal = calcStepperAngles(joint_state_goal, 1000, 0.0001);
+
+	//geometry_msgs::Pose ee_ik = getEEPose(step_angle_goal);
+	//ROS_ERROR_STREAM("Returned EE Pose X: " << ee_ik.position.x << ", " << ee_ik.position.y);
+
+	return step_angle_goal;
+}
+
+Eigen::MatrixXd MechCalc::buildJacobian(double q[2])
+{
+	//linear velocity component of jacobian
+	Eigen::MatrixXd jv(2, 2);
+	jv << -link1_*sin(q[0]) - link2_*sin(q[0]+q[1]), -link1_*sin(q[0]+q[1]),
+		  link1_*cos(q[0]) + link2_*cos(q[0]+q[1]), link1_*cos(q[0]+q[1]);
+
+	return jv;
+}
+
+double * MechCalc::calcStepperAngles(sensor_msgs::JointState jt, int max_it, double accuracy)
+{
+	double q[2];
+	static double step_angle[2];
+	q[0] = jt.position[0];
+	q[1] = jt.position[1];
+	double theta;
+	//Below Horizontal
+	if (q[0] + q[1] <= 0)
+	{
+		theta = -1*(q[0] + q[1]);
+	}
+	//Above Horizontal but Less than q[0] (dont know if test is needed)
+	else
+	{
+		theta = q[0] + q[1];
+	}
+
+	step_angle[0] = q[0];
+
+	
+	double t[2];
+	double step_angle_guess[2][2] = {{q[0], -1.6}, {q[0], 1.6}};
+	double angle1;
+	//SECANT METHOD
+	//Looking for convergance with 0
+	t[0] = calcTheta(step_angle_guess[0]) - theta;
+	t[1] = calcTheta(step_angle_guess[1]) - theta;
+	for (int i = 0; i < max_it; i++)
+	{
+		angle1 = (step_angle_guess[1][1]*t[0] - step_angle_guess[0][1]*t[1])/(t[0]-t[1]);
+
+		if (t[1] < accuracy)
+		{
+			break;
+		}
+		else
+		{
+			step_angle_guess[1][1] = step_angle_guess[0][1];
+			step_angle_guess[0][1] = angle1;
+			t[1] = t[0];
+			t[0] = calcTheta(step_angle_guess[0]) - theta;
+		}
+	}
+	step_angle[1] = angle1;
+	return step_angle;
+}
+
+double MechCalc::calcTheta(double angle[2])
+{
+	//Joint Angles
+	///////////////////
+	//Angle 0 is angle of the stepper1 (0-90Deg)
+	//Angle 1 has to be calculated from geometry of mechanism
+	//a - lenght of the link2 small lever
+	//b - link3 lenght
+	//c - distance between base of link3 and end of link1
+	double a; nh_.getParam("/articulated/link/2/lever", a);
+	double b = link3_;
+	double x1 = link1_*cos(angle[0]);
+	double y1 = link1_*sin(angle[0]);
+	double x3 = stepper2_.coord[0] - stepper2_.hub*cos(angle[1]);
+	double y3 = stepper2_.coord[1] + stepper2_.hub*sin(angle[1]);
+	double c = sqrt(pow(x1-x3, 2) + pow(y1-y3, 2));
+	//phi - angle btw c and a
+	//lamda - angle btw b and c
+	//gamma - angle btw c and horizontal 
+	//theta - difference btw phi and gamma
+	double phi = acos((c*c + a*a - b*b)/(2*c*a));
+	double lamda = acos((c*c + b*b - a*a)/(2*c*b));
+	double gamma = asin((y1 - y3)/c);
+	//double theta = fabs(phi - gamma);
+	double theta = fabs(phi - gamma);
+	return theta;
 }
