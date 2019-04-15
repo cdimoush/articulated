@@ -3,7 +3,7 @@
 
 <!---............................. Link Definitions ................................-->
   
-  <link name="base">
+  <link name="slide">
     <visual>
       <geometry>
         <mesh filename="file:///$(find articulated)/meshes/base.dae"/>
@@ -12,7 +12,7 @@
     </visual>
   </link>
 
-  <link name="link1">
+  <link name="joint1">
     <visual>
       <geometry>
         <mesh filename="file:///$(find articulated)/meshes/link1.dae"/>
@@ -21,7 +21,7 @@
     </visual>
   </link>
 
-  <link name="link2">
+  <link name="joint2">
     <visual>
       <geometry>
         <mesh filename="file:///$(find articulated)/meshes/link2.dae"/>
@@ -33,16 +33,16 @@
 <!---............................. Joint Definitions ................................-->
 
   <joint name="j1" type="revolute">
-    <parent link="base"/>
-    <child link="link1"/>
+    <parent link="slide"/>
+    <child link="joint1"/>
     <axis xyz="0 0 1"/>
     <origin rpy="0 0 0" xyz="0 0 0"/>
     <limit effort="1000.0" lower="-2.96" upper="2.96" velocity="0.5"/>
   </joint>
 
   <joint name="j2" type="revolute">
-    <parent link="link1"/>
-    <child link="link2"/>
+    <parent link="joint1"/>
+    <child link="joint2"/>
     <axis xyz="0 0 1"/>
     <origin rpy="0 0 0" xyz="0 0 0"/>
     <limit effort="1000.0" lower="-2.96" upper="2.96" velocity="0.5"/>

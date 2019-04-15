@@ -14,20 +14,21 @@ class MechCalc
 {
 public:
 	MechCalc();
-	geometry_msgs::Pose getEEPose(double step_angle[2]);
-	double * inverseKinematics(geometry_msgs::Pose ee_pos_goal, double step_angle[2]);
+	geometry_msgs::Pose getEEPose(double step_angle[3]);
+	double * inverseKinematics(geometry_msgs::Pose ee_pos_goal, double step_angle[3]);
 
 	struct Stepper
 	{
-		//Orignally created for stepper 2
 		//Hub radius and offset of coordinates are need for mech calc
 		double hub; 
+		double spr; 
 		double angle;
 		double torque;
 		double coord[2];
 	};
 
 	sensor_msgs::JointState joint_state_;
+	MechCalc::Stepper stepper0_, stepper1_, stepper2_;
 	
 private:
 	//functions
@@ -46,9 +47,10 @@ private:
 	double link1_;
 	double link2_;
 	double link3_;
+	double stepper0_angle_;
 	double stepper1_angle_;
 	double stepper2_angle__;
 
-	MechCalc::Stepper stepper1_, stepper2_;
+	
 	
 };

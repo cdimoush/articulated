@@ -2,13 +2,18 @@ link/1/length: 0.12 #THESE DIMENSIONS STILL NEED TO COMPARED WITH SLDPRT FILES!!
 link/2/length: 0.14 #Length of link from joint to EE
 link/2/lever: 0.12  #Lenght of link from joint to link3
 link/3/length: 0.12
-joints: 2 #Number of Joints 
+base/transform: 0.05 #from ground to slide carriage
+joints: 3 #Number of Joints 
+joint/0/id: "slide"
+joint/0/transform: 0 #from slide carriage to link1 base
 joint/1/id: "joint1"
 joint/1/transform: 0.12 #same as link1 length
 joint/2/id: "joint2"
 joint/2/transform: 0.14 #same as link2 length
 stepper/status/id: false
-stepper/1/spr: 5370 #steps per revolution
+stepper/0/spr: 200 #steps per revolution
+stepper/0/hub: 0.015
+stepper/1/spr: 5370 
 stepper/2/spr: 200
 stepper/2/x: -0.0525 #These are offsets from the servo 1 hub
 stepper/2/y: 0.035

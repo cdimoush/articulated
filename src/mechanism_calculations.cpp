@@ -8,31 +8,34 @@ MechCalc::MechCalc()
 void MechCalc::buildMech()
 {
 	//Defined number of joints
-	joint_state_.position.resize(2);
+	joint_state_.position.resize(3);
 	//Get Mechanism Params
 	nh_.getParam("/articulated/link/1/length", link1_);
 	nh_.getParam("/articulated/link/2/length", link2_);
 	nh_.getParam("/articulated/link/3/length", link3_);
+	nh_.getParam("/articulated/stepper/0/hub", stepper0_.hub);
+	nh_.getParam("/articulated/stepper/0/spr", stepper0_.spr);
+	nh_.getParam("/articulated/stepper/1/spr", stepper1_.spr);
 	nh_.getParam("/articulated/stepper/2/x", stepper2_.coord[0]);
 	nh_.getParam("/articulated/stepper/2/y", stepper2_.coord[1]);
 	nh_.getParam("/articulated/stepper/2/hub", stepper2_.hub);
+	nh_.getParam("/articulated/stepper/2/spr", stepper2_.spr);
+	
 
 }
-geometry_msgs::Pose MechCalc::getEEPose(double step_angle[2])
+geometry_msgs::Pose MechCalc::getEEPose(double step_angle[3])
 {
 	//Do forward kinematics to get position of end effector
 	//Mechanism design is laid out in this function
 	//Consider pulling robot properties and mech from URDF
 
-	stepper1_.angle = step_angle[0];
-	stepper2_.angle = step_angle[1];
+	stepper0_.angle = step_angle[0];
+	stepper1_.angle = step_angle[1];
+	stepper2_.angle = step_angle[2];
 
-	//Joint Angles
-	///////////////////
-	//Angle 0 is angle of the stepper1 (0-90Deg)
-	//Angle 1 has to be calculated from geometry of mechanism
-	double q[2];
-	q[0] = stepper1_.angle;
+	double q[3];
+	q[0] = stepper0_.angle;
+	q[1] = stepper1_.angle;
 	//a - lenght of the link2 small lever
 	//b - link3 lenght
 	//c - distance between base of link3 and end of link1
@@ -58,12 +61,12 @@ geometry_msgs::Pose MechCalc::getEEPose(double step_angle[2])
 
 	if ((y3 + link3_*sin(lamda+gamma)) >= y1) 
 	{
-		q[1] = -1*(q[0] + theta);
+		q[2] = -1*(q[1] + theta);
 	}
 	//Case 2: theta is above horizontal but less than q0
 	else if (theta < q[0])
 	{
-		q[1] = -1*(q[0] - theta);
+		q[2] = -1*(q[1] - theta);
 	}
 	else
 	{
@@ -73,31 +76,32 @@ geometry_msgs::Pose MechCalc::getEEPose(double step_angle[2])
 	//Update Joints
 	joint_state_.position[0] = q[0];
 	joint_state_.position[1] = q[1];
+	joint_state_.position[2] = q[2];
 	
 	return forwardKinematics(joint_state_);
 }
 
 geometry_msgs::Pose MechCalc::forwardKinematics(sensor_msgs::JointState jt)
 {
-	double q[2];
+	double q[3];
 	q[0] = jt.position[0];
 	q[1] = jt.position[1];
+	q[2] = jt.position[2];
 
 	//Transform from 1 to 0
 	Eigen::MatrixXf t01(4, 4);
-	t01 << cos(q[0]), -sin(q[0]), 0, link1_*cos(q[0]),
-		   sin(q[0]), cos(q[0]), 0, link1_*sin(q[0]),
+	t01 << cos(q[1]), -sin(q[1]), 0, link1_*cos(q[1]),
+		   sin(q[1]), cos(q[1]), 0, link1_*sin(q[1]),
 		   0, 0, 1, 0,
 		   0, 0, 0, 1; 
 	//EE coord in frame 1
 	Eigen::MatrixXf ee1(4, 1); ee1 <<  link2_*cos(q[1]), link2_*sin(q[1]), 0, 1;
 	Eigen::VectorXf ee0(4, 1); ee0 = t01 * ee1;
-	//t01 = t01 * ee1;
 	
 	geometry_msgs::Pose ee_pos;
 	ee_pos.position.x = ee0(0, 0);
 	ee_pos.position.y = ee0(1, 0);
-	//ee_pos.position.z = ee0(0, 0);
+	ee_pos.position.z = q[0]*stepper0_.hub; //REVs * 2*pi*r ---> (q/(2*pi))*(2*pi*r)
 
 	return ee_pos;
 }

@@ -29,20 +29,20 @@ class ArmGui(object):
 		self.s1.set(90)
 		bl1 = Button(self.root, text='<', command=self.left1)
 		br1 = Button(self.root, text='>', command=self.right1)
-		l1.grid(row=0, column=0)
-		bl1.grid(row=0, column=1, sticky=E)
-		self.s1.grid(row=0, column=2)
-		br1.grid(row=0, column=3, sticky=W)
+		l1.grid(row=1, column=0)
+		bl1.grid(row=1, column=1, sticky=E)
+		self.s1.grid(row=1, column=2)
+		br1.grid(row=1, column=3, sticky=W)
 
 		l2 = Label(self.root, text='Stepper 2')
 		self.s2 = Scale(self.root, from_=-90, to=90, orient=HORIZONTAL)
 		self.s2.set(0)
 		bl2 = Button(self.root, text='<', command=self.left2)
 		br2 = Button(self.root, text='>', command=self.right2)
-		l2.grid(row=1, column=0)
-		bl2.grid(row=1, column=1, sticky=E)
-		self.s2.grid(row=1, column=2)
-		br2.grid(row=1, column=3, sticky=W)
+		l2.grid(row=2, column=0)
+		bl2.grid(row=2, column=1, sticky=E)
+		self.s2.grid(row=2, column=2)
+		br2.grid(row=2, column=3, sticky=W)
 
 		bpub = Button(self.root, text='Publish', command=self.publishAngles)
 		bcal = Button(self.root, text='Calibrate', command=self.calibrate)
@@ -54,23 +54,43 @@ class ArmGui(object):
 		leey= Label(self.root, text="Y (m)")
 		self.x = Label(self.root, text='0')
 		self.y = Label(self.root, text='0')
-		lee.grid(row=3, column=0)
-		leex.grid(row=4, column=0, sticky=W)
-		leey.grid(row=4, column=1, sticky=W)
-		self.x.grid(row=5, column=0, sticky=W)
-		self.y.grid(row=5, column=1, sticky=W)
+		lee.grid(row=4, column=0)
+		leex.grid(row=5, column=0, sticky=W)
+		leey.grid(row=5, column=1, sticky=W)
+		self.x.grid(row=6, column=0, sticky=W)
+		self.y.grid(row=6, column=1, sticky=W)
 
 		ljt = Label(self.root, text="Joints")
 		ljt1= Label(self.root, text="Joint 1 (degree)")
 		ljt2= Label(self.root, text="Joint 2 (degree)")
 		self.jt1_pos = Label(self.root, text='0')
 		self.jt2_pos = Label(self.root, text='0')
-		ljt.grid(row=6, column=0)
-		ljt1.grid(row=7, column=0, sticky=W)
-		ljt2.grid(row=7, column=1, sticky=W)
-		self.jt1_pos.grid(row=8, column=0, sticky=W)
-		self.jt2_pos.grid(row=8, column=1, sticky=W)
+		ljt.grid(row=7, column=0)
+		ljt1.grid(row=8, column=0, sticky=W)
+		ljt2.grid(row=8, column=1, sticky=W)
+		self.jt1_pos.grid(row=9, column=0, sticky=W)
+		self.jt2_pos.grid(row=9, column=1, sticky=W)
+
+		l0 = Label(self.root, text='Stepper 0')
+		self.s0 = Scale(self.root, from_=0, to=1200, orient=HORIZONTAL)
+		self.s0.set(0)
+		bl0 = Button(self.root, text='<', command=self.left0)
+		br0 = Button(self.root, text='>', command=self.right0)
+		l0.grid(row=0, column=0)
+		bl0.grid(row=0, column=1, sticky=E)
+		self.s0.grid(row=0, column=2)
+		br0.grid(row=0, column=3, sticky=W)
 		
+	def left0(self):
+		i = self.s0.get()
+		if (i-1) >= 0:
+			self.s0.set(i-1)  
+
+	def right0(self):
+		i = self.s0.get()
+		if (i+1) <= 120:
+			self.s0.set(i+1)
+
 	def left1(self):
 		i = self.s1.get()
 		if (i-1) >= 0:
@@ -93,7 +113,7 @@ class ArmGui(object):
 
 	def publishAngles(self):
 		#Get current values of sliders
-		array = [self.s1.get(), self.s2.get()]
+		array = [self.s0.get(), self.s1.get(), self.s2.get()]
 		#Convert to Radians
 		array = [i * (math.pi/180) for i in array]
 		#Put into a float array and send
@@ -103,14 +123,15 @@ class ArmGui(object):
 	def calibrate(self):
 		self.s1.set(90)
 		self.s2.set(0) 
+		self.s0.set(0) 
 
 	def eeCallback(self, ee_pos):
 		self.x.configure(text=str(round(ee_pos.position.x,3)))
 		self.y.configure(text=str(round(ee_pos.position.y,3)))
 
 	def jtCallback(self, jt_pos):
-		self.jt1_pos.configure(text=str(round(jt_pos.position[0] * (180/math.pi),3)))
-		self.jt2_pos.configure(text=str(round(jt_pos.position[1] * (180/math.pi),3)))
+		self.jt1_pos.configure(text=str(round(jt_pos.position[1] * (180/math.pi),3)))
+		self.jt2_pos.configure(text=str(round(jt_pos.position[2] * (180/math.pi),3)))
 		
 
 if __name__ == '__main__':

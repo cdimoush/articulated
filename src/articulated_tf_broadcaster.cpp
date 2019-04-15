@@ -43,29 +43,32 @@ ArticulatedTfBroadcaster::ArticulatedTfBroadcaster()
 
 void ArticulatedTfBroadcaster::build()
 {
-  int j; //number of joints
+  //SET TF FRAME IDS AND INIT TRANSFROMS
+  /////////////////////////////////////////////
+
+  //number of joints... Get number from parameters
+  //number of transforms.... world->ee... so j+2
+  int j; 
   nh_.getParam("/articulated/joints", j);
-  t_ = j + 2; //number of transforms.... world->ee
+  t_ = j + 2; 
   joint_transform_.transforms.resize(t_);
 
+  
+  //id_list stores all the frame_ids for the tfs
   std::vector<std::string> id_list;
   id_list.push_back("world");
   id_list.push_back("base");
-  //add links (consider using parameters)
-  id_list.push_back("link1");
-  id_list.push_back("link2");
-  id_list.push_back("ee");
-  /*
-  for(int i = 0; i < j; i++)
+  //get joint names from parameter server
+  for (int i = 0; i < j; i++)
   {
-    std::stringstream j_num;
-    j_num << i + 1;
+    std::stringstream j_num; 
     std::string j_id;
-    nh_.getParam("/articulated/joint/" + j_num.str() + "/id", j_id);
+    j_num << i;
+    nh_.getParam("articulated/joint/" + j_num.str() + "/id", j_id);
     id_list.push_back(j_id);
-  }*/
-  
-
+  }
+  id_list.push_back("ee");
+  //init all translation and rotation tfs as blanks
   for(int i = 0; i < t_; i ++)
   {
     joint_transform_.transforms[i].header.frame_id = id_list[i];
@@ -78,41 +81,70 @@ void ArticulatedTfBroadcaster::build()
     joint_transform_.transforms[i].transform.rotation.z = 0;
     joint_transform_.transforms[i].transform.rotation.w = 1;
   }
+  /////////////////////////////////////////////
+
+
+  //GET AND SET STATIC TRANSFORMS
+  /////////////////////////////////////////////
+
+  //get static transformations
+  std::vector<double>static_tran_list;
+  double s_tran;
+  nh_.getParam("articulated/base/transform", s_tran);
+  static_tran_list.push_back(s_tran);
+  //ERROR IN DAE CORDINATE DEFINITION
+  static_tran_list.push_back(0.025); //no static trans from base -> slide
+  for (int i = 0; i < j; i++)
+  {
+    std::stringstream j_num; 
+    j_num << i;
+    nh_.getParam("articulated/joint/" + j_num.str() + "/transform", s_tran);
+    ROS_ERROR_STREAM(s_tran); 
+    static_tran_list.push_back(s_tran);
+  }
+  //set statics transforms 
+  for(int i = 0; i < t_; i ++)
+  {
+    //world - > base, slide -> joint 1
+    if (i < 3)
+    {
+      joint_transform_.transforms[i].transform.translation.y = static_tran_list[i];
+    }
+    else
+    {
+      joint_transform_.transforms[i].transform.translation.x = static_tran_list[i];
+    }
+  }
+  /////////////////////////////////////////////
 }
 
 void ArticulatedTfBroadcaster::jtCallback(sensor_msgs::JointState j_state)
 {
-  //Here is what you gotta do.....
-
-  //Add first Rotation term to the i+1 tf, then rotation and translation to i+2, then just translation to ee
+  //save joint state
   std::vector<float> q;
   q.push_back(j_state.position[0]);
   q.push_back(j_state.position[1]);
-  q.push_back(0);
-  //Update Translation and Rotation
-  geometry_msgs::Quaternion quat = tf::createQuaternionMsgFromYaw(q[0]);
-  joint_transform_.transforms[1].transform.rotation.x = quat.x;
-  joint_transform_.transforms[1].transform.rotation.y = quat.y;
-  joint_transform_.transforms[1].transform.rotation.z = quat.z;
-  joint_transform_.transforms[1].transform.rotation.w = quat.w;
-  for(int i = 0; i < t_ - 2; i++)
-  {
-    //Note: Joint transforms start at index 2 (0:world, 1:base)
-    //float q = j_state.position[i];
-    std::stringstream j_num;
-    j_num << i + 1;
-    double trans_mag;
-    nh_.getParam("/articulated/joint/" + j_num.str() + "/transform", trans_mag);
-    joint_transform_.transforms[i+2].transform.translation.x = trans_mag;
-    //joint_transform_.transforms[i+2].transform.translation.x = trans_mag * cos(q[i]);
-    //joint_transform_.transforms[i+2].transform.translation.y = trans_mag * sin(q[i]);
-    
-    geometry_msgs::Quaternion quat = tf::createQuaternionMsgFromYaw(q[i+1]);
-    joint_transform_.transforms[i+2].transform.rotation.x = quat.x;
-    joint_transform_.transforms[i+2].transform.rotation.y = quat.y;
-    joint_transform_.transforms[i+2].transform.rotation.z = quat.z;
-    joint_transform_.transforms[i+2].transform.rotation.w = quat.w;
-  }
+  q.push_back(j_state.position[2]);
+  
+  //Update Z Translation
+  double stepper0_spr;
+  double stepper0_hub;
+  nh_.getParam("/articulated/stepper/0/hub", stepper0_hub);
+  joint_transform_.transforms[1].transform.translation.z = q[0]*stepper0_hub;
+
+  //Joint 1 Rotation
+  geometry_msgs::Quaternion quat = tf::createQuaternionMsgFromYaw(q[1]);
+  joint_transform_.transforms[2].transform.rotation.x = quat.x;
+  joint_transform_.transforms[2].transform.rotation.y = quat.y;
+  joint_transform_.transforms[2].transform.rotation.z = quat.z;
+  joint_transform_.transforms[2].transform.rotation.w = quat.w;
+
+  //Joint 2 Rotation
+  quat = tf::createQuaternionMsgFromYaw(q[2]);
+  joint_transform_.transforms[3].transform.rotation.x = quat.x;
+  joint_transform_.transforms[3].transform.rotation.y = quat.y;
+  joint_transform_.transforms[3].transform.rotation.z = quat.z;
+  joint_transform_.transforms[3].transform.rotation.w = quat.w;
 }
 
 void ArticulatedTfBroadcaster::broadcastTf()
