@@ -21,6 +21,7 @@ private:
   void setStepperCallback(std_msgs::Float64MultiArray goal);
   void serialCallback(articulated::serial_msg data);
   void ikPosCallback(geometry_msgs::Pose pos_goal);
+  int calcSteps(double angle, double stepper_id);
 
   ros::NodeHandle nh_;
   ros::Subscriber stepper_angle_sub_;
@@ -91,12 +92,17 @@ void StepperDriverClient::ikPosCallback(geometry_msgs::Pose pose_goal)
 {
   double * jt_st_goal;
   jt_st_goal = mech_.inverseKinematics(pose_goal, stepper_angle_current_);
-  ROS_ERROR_STREAM("Return From IK");
   std_msgs::Float64MultiArray goal_msg_out;
-  goal_msg_out.data.resize(2);
+  goal_msg_out.data.resize(3);
   goal_msg_out.data[0] = jt_st_goal[0];
   goal_msg_out.data[1] = jt_st_goal[1];
-  ROS_ERROR_STREAM("Sending Goal to set stepper");
+  goal_msg_out.data[2] = jt_st_goal[2];
+
+  //DEBUG
+  ROS_ERROR_STREAM("GOALS");
+  ROS_ERROR_STREAM("JT0: " << jt_st_goal[0]);
+  ROS_ERROR_STREAM("JT1: " << jt_st_goal[1]);
+  ROS_ERROR_STREAM("JT2: " << jt_st_goal[2]);
   setStepperCallback(goal_msg_out);
 }
 void StepperDriverClient::setStepperCallback(std_msgs::Float64MultiArray goal)
@@ -110,11 +116,8 @@ void StepperDriverClient::setStepperCallback(std_msgs::Float64MultiArray goal)
       
       //spr is steps per revolution, the spr for each stepper is a param
       double spr;
-      std::stringstream string_id;
       std::stringstream g_string;
-      string_id << i;
-      nh_.getParam("articulated/stepper/" + string_id.str() + "/spr", spr);
-      int g_steps = round(g*spr/(2*M_PI));
+      int g_steps = calcSteps(g, i);
       g_string << g_steps;
 
       articulated::serial_msg g_msg;
@@ -122,11 +125,34 @@ void StepperDriverClient::setStepperCallback(std_msgs::Float64MultiArray goal)
       g_msg.topic = "set_step_pos";
       g_msg.msg = g_string.str();
       serial_pub_.publish(g_msg);
-      ROS_ERROR_STREAM("sending stepper " << i << " goal of " << g_steps <<" steps");
+      //ROS_ERROR_STREAM("sending stepper " << i << " goal of " << g_steps <<" steps");
     }
   }
 }
 
+int StepperDriverClient::calcSteps(double angle, double stepper_id)
+{
+  double spr;
+  if (stepper_id == 0)
+  {
+    spr = mech_.stepper0_.spr;
+    return angle*spr/(2*M_PI);
+  }
+  if (stepper_id == 1)
+  {
+    spr = mech_.stepper1_.spr;
+    return angle*spr/(2*M_PI);
+  }
+  if (stepper_id == 2)
+  {
+    spr = mech_.stepper2_.spr;
+    return angle*spr/(2*M_PI);
+  }
+  else
+  {
+    ROS_ERROR_STREAM("COULD NOT GET SPR");
+  }
+}
 
 int main(int argc, char **argv)
 {

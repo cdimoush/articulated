@@ -102,18 +102,30 @@ geometry_msgs::Pose MechCalc::forwardKinematics(sensor_msgs::JointState jt)
 	ee_pos.position.x = ee0(0, 0);
 	ee_pos.position.y = ee0(1, 0);
 	ee_pos.position.z = q[0]*stepper0_.hub; //REVs * 2*pi*r ---> (q/(2*pi))*(2*pi*r)
+	//ROS_ERROR_STREAM("Returned EE Pose Z: " << ee_pos.position.z);
 
 	return ee_pos;
 }
 
-double * MechCalc::inverseKinematics(geometry_msgs::Pose ee_pos_goal, double step_angle[2])
+double * MechCalc::inverseKinematics(geometry_msgs::Pose ee_pos_goal, double step_angle[3])
 {
 	ROS_ERROR_STREAM("Start IK");
-	double q[2];
+	double q[3];
+	double q_planar[2];
 	geometry_msgs::Pose ee_pos_current = forwardKinematics(joint_state_);
 	q[0] = joint_state_.position[0];
 	q[1] = joint_state_.position[1];
+	q[2] = joint_state_.position[2];
+	q_planar[0] = q[1];
+	q_planar[1] = q[2];
+	sensor_msgs::JointState joint_state_goal;
+	joint_state_goal.position.resize(3);
 
+	//Solve Z
+	double delta_z = ee_pos_goal.position.z - ee_pos_current.position.z;
+	joint_state_goal.position[0] = q[0] + delta_z/stepper0_.hub;
+
+	//Solve Planar
 	Eigen::VectorXd delta_theta(2);
 	Eigen::VectorXd delta_x(2);
 	Eigen::VectorXd delta_pos(2);
@@ -122,41 +134,39 @@ double * MechCalc::inverseKinematics(geometry_msgs::Pose ee_pos_goal, double ste
 	ROS_ERROR_STREAM("Delta x: "<< delta_pos[0]);
 	ROS_ERROR_STREAM("Delta y: "<< delta_pos[1]);
 	//Calc # of steps based on largest delta pos value
-	double step_size = 0.00005;
+	double step_size = 0.0005;
 	double delta_max = 0; 
 	int steps;
 	for (int i = 0; i < 2; i++)
 	{
-		
-		if (delta_pos[i] > delta_max)
+		if (fabs(delta_pos[i]) < step_size)
 		{
-			delta_max = delta_pos[i];
+			delta_pos[i] = 0;
 		}
+		if (fabs(delta_pos[i]) > delta_max)
+		{
+			delta_max = fabs(delta_pos[i]);
+		}
+
 	}
 	steps = round(delta_max/step_size);
 	ROS_ERROR_STREAM("IK Steps: "<< steps);
-	//Calcs delta_x values
-	/*
-	for (int i = 0; i < 3; i++)
-	{
-		delta_x[i] = delta_pos[i]/steps;
-	}*/
+
 	delta_x = delta_pos / steps;
 	for (int i = 0; i < steps; i ++)
 	{
-		Eigen::MatrixXd j = buildJacobian(q);
-		//ROS_ERROR_STREAM(j);
+		Eigen::MatrixXd j = buildJacobian(q_planar);
 		Eigen::MatrixXd j_inv = j.transpose() * (j*j.transpose()).inverse();
+		//ROS_ERROR_STREAM(j);
 		//ROS_ERROR_STREAM(j_inv);
 		delta_theta = j_inv * delta_x;
-		q[0] += delta_theta[0];
-		q[1] += delta_theta[1];
+		q[1] += delta_theta[0];
+		q[2] += delta_theta[1];
 	}
 
-	sensor_msgs::JointState joint_state_goal;
-	joint_state_goal.position.resize(2);
-	joint_state_goal.position[0] = q[0];
+	
 	joint_state_goal.position[1] = q[1];
+	joint_state_goal.position[2] = q[2];
 	double * step_angle_goal;
 	step_angle_goal = calcStepperAngles(joint_state_goal, 1000, 0.0001);
 
@@ -178,29 +188,31 @@ Eigen::MatrixXd MechCalc::buildJacobian(double q[2])
 
 double * MechCalc::calcStepperAngles(sensor_msgs::JointState jt, int max_it, double accuracy)
 {
-	double q[2];
-	static double step_angle[2];
+	double q[3];
+	static double step_angle[3];
 	q[0] = jt.position[0];
 	q[1] = jt.position[1];
+	q[2] = jt.position[2];
+	step_angle[0] = q[0];
+	step_angle[1] = q[1];
+
+	//CALC THETA FOR KNOWN JOINT ANGLE COMBINATION
 	double theta;
 	//Below Horizontal
-	if (q[0] + q[1] <= 0)
+	if (q[1] + q[2] <= 0)
 	{
-		theta = -1*(q[0] + q[1]);
+		theta = -1*(q[1] + q[2]);
 	}
-	//Above Horizontal but Less than q[0] (dont know if test is needed)
+	//Above Horizontal but Less than q[1] (dont know if test is needed)
 	else
 	{
-		theta = q[0] + q[1];
+		theta = q[1] + q[2];
 	}
 
-	step_angle[0] = q[0];
-
-	
 	double t[2];
-	double step_angle_guess[2][2] = {{q[0], -1.6}, {q[0], 1.6}};
+	double step_angle_guess[2][2] = {{q[1], -1.6}, {q[1], 1.6}};
 	double angle1;
-	//SECANT METHOD
+	//SECANT METHOD.... find step angle to that results in known theta
 	//Looking for convergance with 0
 	t[0] = calcTheta(step_angle_guess[0]) - theta;
 	t[1] = calcTheta(step_angle_guess[1]) - theta;
@@ -220,7 +232,7 @@ double * MechCalc::calcStepperAngles(sensor_msgs::JointState jt, int max_it, dou
 			t[0] = calcTheta(step_angle_guess[0]) - theta;
 		}
 	}
-	step_angle[1] = angle1;
+	step_angle[2] = angle1;
 	return step_angle;
 }
 

@@ -1,6 +1,13 @@
 <?xml version="1.0"?>
 <robot name="articulated">
 
+<material name="purple">
+  <color rgba="0.8 0 0.8 1"/>
+</material>
+<material name="grey">
+  <color rgba="0.15 0.15 0.15 1"/>
+</material>
+
 <!---............................. Link Definitions ................................-->
   
   <link name="slide">
@@ -8,6 +15,7 @@
       <geometry>
         <mesh filename="file:///$(find articulated)/meshes/base.dae"/>
       </geometry>
+      <material name="purple"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
     </visual>
   </link>
@@ -17,6 +25,7 @@
       <geometry>
         <mesh filename="file:///$(find articulated)/meshes/link1.dae"/>
       </geometry>
+      <material name="purple"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
     </visual>
   </link>
@@ -26,6 +35,7 @@
       <geometry>
         <mesh filename="file:///$(find articulated)/meshes/link2.dae"/>
       </geometry>
+      <material name="purple"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
     </visual>
   </link>
