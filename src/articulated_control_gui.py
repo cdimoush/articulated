@@ -24,6 +24,7 @@ class ArmGui(object):
 		while not rospy.is_shutdown():
 			self.root.mainloop()
 
+
 	def build(self):
 		self.root.title('Articulated Proto GUI')
 
@@ -93,10 +94,10 @@ class ArmGui(object):
 		lee.grid(row=4, column=0)
 		leex.grid(row=5, column=0, sticky=W)
 		leey.grid(row=5, column=1, sticky=W)
-		leez.grid(row=5, column=2, sticky=W)
+		leez.grid(row=5, column=2, sticky=E)
 		self.x.grid(row=6, column=0, sticky=W)
 		self.y.grid(row=6, column=1, sticky=W)
-		self.z.grid(row=6, column=2, sticky=W)
+		self.z.grid(row=6, column=2, sticky=E)
 
 		ljt = Label(self.root, text="Joints")
 		ljt0= Label(self.root, text="Joint 0")
@@ -108,10 +109,10 @@ class ArmGui(object):
 		ljt.grid(row=7, column=0, sticky=W)
 		ljt0.grid(row=8, column=0, sticky=W)
 		ljt1.grid(row=8, column=1, sticky=W)
-		ljt2.grid(row=8, column=2, sticky=W)
+		ljt2.grid(row=8, column=2, sticky=E)
 		self.jt0_pos.grid(row=9, column=0, sticky=W)
 		self.jt1_pos.grid(row=9, column=1, sticky=W)
-		self.jt2_pos.grid(row=9, column=2, sticky=W)
+		self.jt2_pos.grid(row=9, column=2, sticky=E)
 
 		
 		

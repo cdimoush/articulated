@@ -84,6 +84,9 @@ void StepperDriverClient::serialCallback(articulated::serial_msg data)
   nh_.getParam("articulated/stepper/" + string_id.str() + "/spr", spr);
   stepper_angle_current_[i] = stepper_angle_current_[i] + 2*M_PI * steps/(fabs(steps)*spr); 
 
+  //Debug
+  //ROS_ERROR_STREAM("Stepper " << i << " angle: " << stepper_angle_current_[i]);
+
   ee_pos_ = mech_.getEEPose(stepper_angle_current_); 
   ee_pub_.publish(ee_pos_);
 }
@@ -99,10 +102,11 @@ void StepperDriverClient::ikPosCallback(geometry_msgs::Pose pose_goal)
   goal_msg_out.data[2] = jt_st_goal[2];
 
   //DEBUG
-  ROS_ERROR_STREAM("GOALS");
+  /*ROS_ERROR_STREAM("GOALS");
   ROS_ERROR_STREAM("JT0: " << jt_st_goal[0]);
   ROS_ERROR_STREAM("JT1: " << jt_st_goal[1]);
-  ROS_ERROR_STREAM("JT2: " << jt_st_goal[2]);
+  ROS_ERROR_STREAM("JT2: " << jt_st_goal[2]);*/
+
   setStepperCallback(goal_msg_out);
 }
 void StepperDriverClient::setStepperCallback(std_msgs::Float64MultiArray goal)

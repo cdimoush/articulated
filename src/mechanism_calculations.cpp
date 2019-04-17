@@ -64,7 +64,7 @@ geometry_msgs::Pose MechCalc::getEEPose(double step_angle[3])
 		q[2] = -1*(q[1] + theta);
 	}
 	//Case 2: theta is above horizontal but less than q0
-	else if (theta < q[0])
+	else if (theta < q[1])
 	{
 		q[2] = -1*(q[1] - theta);
 	}
@@ -95,7 +95,7 @@ geometry_msgs::Pose MechCalc::forwardKinematics(sensor_msgs::JointState jt)
 		   0, 0, 1, 0,
 		   0, 0, 0, 1; 
 	//EE coord in frame 1
-	Eigen::MatrixXf ee1(4, 1); ee1 <<  link2_*cos(q[1]), link2_*sin(q[1]), 0, 1;
+	Eigen::MatrixXf ee1(4, 1); ee1 <<  link2_*cos(q[2]), link2_*sin(q[2]), 0, 1;
 	Eigen::VectorXf ee0(4, 1); ee0 = t01 * ee1;
 	
 	geometry_msgs::Pose ee_pos;
@@ -147,7 +147,6 @@ double * MechCalc::inverseKinematics(geometry_msgs::Pose ee_pos_goal, double ste
 		{
 			delta_max = fabs(delta_pos[i]);
 		}
-
 	}
 	steps = round(delta_max/step_size);
 	ROS_ERROR_STREAM("IK Steps: "<< steps);
@@ -170,8 +169,8 @@ double * MechCalc::inverseKinematics(geometry_msgs::Pose ee_pos_goal, double ste
 	double * step_angle_goal;
 	step_angle_goal = calcStepperAngles(joint_state_goal, 1000, 0.0001);
 
-	//geometry_msgs::Pose ee_ik = getEEPose(step_angle_goal);
-	//ROS_ERROR_STREAM("Returned EE Pose X: " << ee_ik.position.x << ", " << ee_ik.position.y);
+	geometry_msgs::Pose ee_ik = forwardKinematics(joint_state_goal);
+	ROS_ERROR_STREAM("Returned EE Pose X: " << ee_ik.position.x << ", Y: " << ee_ik.position.y);
 
 	return step_angle_goal;
 }
