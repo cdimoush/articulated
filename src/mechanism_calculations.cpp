@@ -25,6 +25,16 @@ void MechCalc::buildMech()
 }
 geometry_msgs::Pose MechCalc::getEEPose(double step_angle[3])
 {
+	//Calculate Joint State from current angle state
+	sensor_msgs::JointState jt = calcJointState(step_angle);
+	//Update the robots joint state
+	joint_state_.position[0] = jt.position[0];
+	joint_state_.position[1] = jt.position[1];
+	joint_state_.position[2] = jt.position[2];
+	return forwardKinematics(joint_state_);
+}
+sensor_msgs::JointState MechCalc::calcJointState(double step_angle[3])
+{
 	//Do forward kinematics to get position of end effector
 	//Mechanism design is laid out in this function
 	//Consider pulling robot properties and mech from URDF
@@ -73,12 +83,14 @@ geometry_msgs::Pose MechCalc::getEEPose(double step_angle[3])
 		ROS_ERROR("CANNOT calculate joint states from mechanism state");
 	}
 
-	//Update Joints
-	joint_state_.position[0] = q[0];
-	joint_state_.position[1] = q[1];
-	joint_state_.position[2] = q[2];
+	//Build Joints State
+	sensor_msgs::JointState jt;
+	jt.position.resize(3);
+	jt.position[0] = q[0];
+	jt.position[1] = q[1];
+	jt.position[2] = q[2];
 	
-	return forwardKinematics(joint_state_);
+	return jt;
 }
 
 geometry_msgs::Pose MechCalc::forwardKinematics(sensor_msgs::JointState jt)
@@ -107,7 +119,7 @@ geometry_msgs::Pose MechCalc::forwardKinematics(sensor_msgs::JointState jt)
 	return ee_pos;
 }
 
-double * MechCalc::inverseKinematics(geometry_msgs::Pose ee_pos_goal, double step_angle[3])
+std::tuple<double *, bool> MechCalc::inverseKinematics(geometry_msgs::Pose ee_pos_goal, double step_angle[3])
 {
 	ROS_ERROR_STREAM("Start IK");
 	double q[3];
@@ -118,6 +130,7 @@ double * MechCalc::inverseKinematics(geometry_msgs::Pose ee_pos_goal, double ste
 	q[2] = joint_state_.position[2];
 	q_planar[0] = q[1];
 	q_planar[1] = q[2];
+	double * step_angle_goal;
 	sensor_msgs::JointState joint_state_goal;
 	joint_state_goal.position.resize(3);
 
@@ -154,25 +167,64 @@ double * MechCalc::inverseKinematics(geometry_msgs::Pose ee_pos_goal, double ste
 	delta_x = delta_pos / steps;
 	for (int i = 0; i < steps; i ++)
 	{
+		//Get Jacobian / Inverse
 		Eigen::MatrixXd j = buildJacobian(q_planar);
 		Eigen::MatrixXd j_inv = j.transpose() * (j*j.transpose()).inverse();
+
+		//DEBUG
+		//double j_con = j_inv.norm() * j.norm();
 		//ROS_ERROR_STREAM(j);
 		//ROS_ERROR_STREAM(j_inv);
+		//ROS_ERROR_STREAM("Jacobian Condition: " << j_con);
+		
 		delta_theta = j_inv * delta_x;
-		q[1] += delta_theta[0];
-		q[2] += delta_theta[1];
+		q_planar[0] += delta_theta[0];
+		q_planar[1] += delta_theta[1];
 	}
 
-	
+	q[1] = q_planar[0];
+	q[2] = q_planar[1];
 	joint_state_goal.position[1] = q[1];
 	joint_state_goal.position[2] = q[2];
-	double * step_angle_goal;
-	step_angle_goal = calcStepperAngles(joint_state_goal, 1000, 0.0001);
 
-	geometry_msgs::Pose ee_ik = forwardKinematics(joint_state_goal);
-	ROS_ERROR_STREAM("Returned EE Pose X: " << ee_ik.position.x << ", Y: " << ee_ik.position.y);
-
-	return step_angle_goal;
+	//CHECK IF CALCULATED JOINT STATES PRODUCE DESIRED EE POS (withing ik accuracy)
+	//Raise flag if accuracy is not achieved  
+	double ik_acc = 0.01;
+	bool flag = false;
+	geometry_msgs::Pose ee_pos_ik = forwardKinematics(joint_state_goal);
+	//check x, y, and z 
+	if (fabs(ee_pos_ik.position.x - ee_pos_goal.position.x) > ik_acc) flag = true;
+	if (fabs(ee_pos_ik.position.y - ee_pos_goal.position.y) > ik_acc) flag = true;
+	if (fabs(ee_pos_ik.position.z - ee_pos_goal.position.z) > ik_acc) flag = true;
+	//RETURN FAILURE..... EXITING IK NOW
+	if (flag)
+	{
+		ROS_ERROR_STREAM("IK joint state incorrect");
+		return std::make_tuple(step_angle_goal, true);
+	}
+	//IF NOT FAILURE THEN CALCULATE STEPPER ANGLES FROM JOINT ANGLES
+	std::tie(step_angle_goal, flag) = calcStepperAngles(joint_state_goal, 1000, 0.0001);
+	if (flag)
+	{
+		ROS_ERROR_STREAM("Could not solve for stepper angles");
+		return std::make_tuple(step_angle_goal, true);
+	}
+	//CHECK IF CALCULATED JOINT STATES PRODUCE DESIRED EE POS (withing ik accuracy)
+	//Raise flag if accuracy is not achieved
+	//This time the check is done for the stepper angles produced 
+	joint_state_goal = calcJointState(step_angle_goal);
+	ee_pos_ik = forwardKinematics(joint_state_goal);
+	if (fabs(ee_pos_ik.position.x - ee_pos_goal.position.x) > ik_acc) flag = true;
+	if (fabs(ee_pos_ik.position.y - ee_pos_goal.position.y) > ik_acc) flag = true;
+	if (fabs(ee_pos_ik.position.z - ee_pos_goal.position.z) > ik_acc) flag = true;
+	//return failure
+	if (flag)
+	{
+		ROS_ERROR_STREAM("IK stepper angles incorrect");
+		return std::make_tuple(step_angle_goal, true);
+	}
+	//IK SUCCESS
+	return std::make_tuple(step_angle_goal, false);
 }
 
 Eigen::MatrixXd MechCalc::buildJacobian(double q[2])
@@ -185,7 +237,7 @@ Eigen::MatrixXd MechCalc::buildJacobian(double q[2])
 	return jv;
 }
 
-double * MechCalc::calcStepperAngles(sensor_msgs::JointState jt, int max_it, double accuracy)
+std::tuple<double *, bool> MechCalc::calcStepperAngles(sensor_msgs::JointState jt, int max_it, double accuracy)
 {
 	double q[3];
 	static double step_angle[3];
@@ -207,32 +259,34 @@ double * MechCalc::calcStepperAngles(sensor_msgs::JointState jt, int max_it, dou
 	{
 		theta = q[1] + q[2];
 	}
-
-	double t[2];
-	double step_angle_guess[2][2] = {{q[1], -1.6}, {q[1], 1.6}};
-	double angle1;
+	double f[2];
+	double s[2][2] = {{q[1], -1.6}, {q[1], 1.6}};
+	double s_new;
 	//SECANT METHOD.... find step angle to that results in known theta
 	//Looking for convergance with 0
-	t[0] = calcTheta(step_angle_guess[0]) - theta;
-	t[1] = calcTheta(step_angle_guess[1]) - theta;
+	f[0] = calcTheta(s[0]) - theta;
+	f[1] = calcTheta(s[1]) - theta;
 	for (int i = 0; i < max_it; i++)
 	{
-		angle1 = (step_angle_guess[1][1]*t[0] - step_angle_guess[0][1]*t[1])/(t[0]-t[1]);
-
-		if (t[1] < accuracy)
-		{
-			break;
+		//DEBUG
+		//ROS_ERROR_STREAM("Desired Theta: " << theta << " Calc Theta: " << f[0] + theta);
+		if (fabs(f[0]) < accuracy)
+		{	
+			step_angle[2] = s[0][1];
+			return std::make_tuple(step_angle, false);
 		}
 		else
 		{
-			step_angle_guess[1][1] = step_angle_guess[0][1];
-			step_angle_guess[0][1] = angle1;
-			t[1] = t[0];
-			t[0] = calcTheta(step_angle_guess[0]) - theta;
+			s_new = s[0][1] - f[0]*((s[0][1] - s[1][1])/(f[0] - f[1]));
+			s[1][1] = s[0][1];
+			s[0][1] = s_new;
+			f[1] = f[0];
+			f[0] = calcTheta(s[0]) - theta;
 		}
 	}
-	step_angle[2] = angle1;
-	return step_angle;
+	
+	return std::make_tuple(step_angle, true);
+
 }
 
 double MechCalc::calcTheta(double angle[2])

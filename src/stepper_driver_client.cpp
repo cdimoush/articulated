@@ -30,11 +30,9 @@ private:
   ros::ServiceClient client_;
   MechCalc mech_;
 
-
   ros::Subscriber serial_sub_;
   ros::Subscriber ik_pos_sub_;
   ros::Publisher serial_pub_;
-
   
   double stepper_angle_current_[3];
   double stepper_angle_goal_[3];
@@ -94,20 +92,26 @@ void StepperDriverClient::serialCallback(articulated::serial_msg data)
 void StepperDriverClient::ikPosCallback(geometry_msgs::Pose pose_goal)
 {
   double * jt_st_goal;
-  jt_st_goal = mech_.inverseKinematics(pose_goal, stepper_angle_current_);
-  std_msgs::Float64MultiArray goal_msg_out;
-  goal_msg_out.data.resize(3);
-  goal_msg_out.data[0] = jt_st_goal[0];
-  goal_msg_out.data[1] = jt_st_goal[1];
-  goal_msg_out.data[2] = jt_st_goal[2];
+  bool flag;
 
-  //DEBUG
-  /*ROS_ERROR_STREAM("GOALS");
-  ROS_ERROR_STREAM("JT0: " << jt_st_goal[0]);
-  ROS_ERROR_STREAM("JT1: " << jt_st_goal[1]);
-  ROS_ERROR_STREAM("JT2: " << jt_st_goal[2]);*/
+  std::tie(jt_st_goal, flag) = mech_.inverseKinematics(pose_goal, stepper_angle_current_);
+  if (!flag)
+  {
+    std_msgs::Float64MultiArray goal_msg_out;
+    goal_msg_out.data.resize(3);
+    goal_msg_out.data[0] = jt_st_goal[0];
+    goal_msg_out.data[1] = jt_st_goal[1];
+    goal_msg_out.data[2] = jt_st_goal[2];
 
-  setStepperCallback(goal_msg_out);
+    //DEBUG
+    /*ROS_ERROR_STREAM("GOALS");
+    ROS_ERROR_STREAM("JT0: " << jt_st_goal[0]);
+    ROS_ERROR_STREAM("JT1: " << jt_st_goal[1]);
+    ROS_ERROR_STREAM("JT2: " << jt_st_goal[2]);*/
+
+    setStepperCallback(goal_msg_out);
+  }
+  else ROS_ERROR_STREAM("IK SOLUTION IS INACCURATE OR DOES NOT EXIST");
 }
 void StepperDriverClient::setStepperCallback(std_msgs::Float64MultiArray goal)
 {
