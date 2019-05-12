@@ -56,7 +56,7 @@ class SimpleSerial:
 class SerialCom:
 	_port_id_in_progress = True
 	_port_id_attempts = []
-	_ser_com_list = []
+	_ser_com_list = [None] * 3
 	def __init__(self):
 		#Name of serial device folder and potential names given to arduinos
 		rospy.loginfo('%s: Initializing', rospy.get_name())
@@ -100,7 +100,8 @@ class SerialCom:
 
 		while not rospy.is_shutdown():
 			for i in self._ser_com_list:
-				i.spin()
+				if i is not None:
+					i.spin()
 			rospy.Rate(100).sleep()
 
 
@@ -122,7 +123,7 @@ class SerialCom:
 					rospy.loginfo('%s: Stepper %s is on port %s', rospy.get_name(), msg, port)
 					#param_name = 'articulated/stepper/' + str(msg) + '/port'
 					#rospy.set_param(param_name, port)
-					self._ser_com_list.insert(micro_id, i[1])
+					self._ser_com_list[micro_id] = i[1]
 					i[1].setID(micro_id)
 
 					self._port_id_attempts.remove(i)

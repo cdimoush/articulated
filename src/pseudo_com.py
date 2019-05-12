@@ -10,6 +10,7 @@ from articulated.msg import serial_msg
 class SerialCom:
 	_stepper_states = [0, 0, 0]
 	_stepper_goals = [0, 0, 0]
+	dq = 0.05
 	def __init__(self):
 		#Name of serial device folder and potential names given to arduinos
 		rospy.loginfo('%s: Initializing', rospy.get_name())
@@ -29,15 +30,23 @@ class SerialCom:
 							rospy.Rate(450).sleep()
 						else:
 							rospy.Rate(25).sleep()
-						if x > 0:
-							self._stepper_states[i] += 1
-						if x < 0:
-							self._stepper_states[i] -= 1
+						if abs(x) >= self.dq:
+							receive_msg = serial_msg()
+							receive_msg.micro_id = i
+							receive_msg.topic = "step_feedback"
+							if x > 0:
+								self._stepper_states[i] += self.dq
+								receive_msg.msg = str(self.dq)
+							if x < 0:
+								self._stepper_states[i] -= self.dq
+								receive_msg.msg = str(-1*self.dq)	
+						else:
+							self._stepper_states[i] += x
+							receive_msg = serial_msg()
+							receive_msg.micro_id = i
+							receive_msg.topic = "step_feedback"
+							receive_msg.msg = str(x)
 
-						receive_msg = serial_msg()
-						receive_msg.micro_id = i
-						receive_msg.topic = "step_feedback"
-						receive_msg.msg = str(self._stepper_states[i])
 						self._pub.publish(receive_msg)
 			else:
 				for i in range(3):
@@ -48,7 +57,7 @@ class SerialCom:
 
 	def sendMsgCallback(self, send_msg):
 		if send_msg.topic == "set_step_pos":
-			self._stepper_goals[send_msg.micro_id] = int(send_msg.msg)
+			self._stepper_goals[send_msg.micro_id] = float(send_msg.msg)
 
 if __name__ == '__main__':
 	rospy.init_node('Psuedo_Serial_Com')

@@ -7,7 +7,7 @@ ROS Stepper motor control for arduino nano.
 #include <math.h>
 
 SimpleSerial ser;
-const int stepper_id = 0;
+const int stepper_id = 2;
 const int stepsPerRev = 200;
 Stepper motor(stepsPerRev, 8, 9, 10, 11);
 

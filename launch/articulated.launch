@@ -1,5 +1,5 @@
 <launch>
-	<arg name="run_as_sim" default="true" />
+	<arg name="run_as_sim" default="false" />
 	<arg name="launch_gui" default="true" />
 	<arg name="launch_rviz" default="true" />
 	<arg name="model" default="$(find articulated)/urdf/articulated.urdf"/>
@@ -8,7 +8,7 @@
 	<rosparam command="load" file="$(find articulated)/config/articulated_mechanism.yaml" ns="articulated" />
 	
 	<node name="gui" pkg="articulated" type="articulated_control_gui.py" output="screen" if="$(arg launch_gui)"/>
-	<node name="serial" pkg="articulated" type="stepper_com_node.py" output="screen" unless="$(arg run_as_sim)"/>
+	<node name="serial" pkg="articulated" type="serial_com_node.py" output="screen" unless="$(arg run_as_sim)"/>
 	<node name="pseudo_serial" pkg="articulated" type="pseudo_com.py" output="screen" if="$(arg run_as_sim)"/>
 	<node name="stepper_client" pkg="articulated" type="stepper_driver_client" output="screen"/>
 	<node name="tf_broadcaster" pkg="articulated" type="articulated_tf_broadcaster" output="screen"/>

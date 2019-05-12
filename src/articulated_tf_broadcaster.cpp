@@ -99,7 +99,7 @@ void ArticulatedTfBroadcaster::build()
     std::stringstream j_num; 
     j_num << i;
     nh_.getParam("articulated/joint/" + j_num.str() + "/transform", s_tran);
-    ROS_ERROR_STREAM(s_tran); 
+    //ROS_ERROR_STREAM(s_tran); 
     static_tran_list.push_back(s_tran);
   }
   //set statics transforms 

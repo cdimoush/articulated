@@ -57,11 +57,12 @@ StepperDriverClient::StepperDriverClient()
   ee_pub_.publish(ee_pos_);
 
   while (ros::ok())
-  {
+  { 
     joint_state_pub_.publish(mech_.joint_state_);
     ros::spinOnce();
     ros::Duration(0.01).sleep();
   }
+  ROS_ERROR_STREAM("Killing MAin");
 }
 
 void StepperDriverClient::serialCallback(articulated::serial_msg data)
@@ -73,14 +74,19 @@ void StepperDriverClient::serialCallback(articulated::serial_msg data)
   std::stringstream string_id; 
   string_id << i;
 
-  int steps;
+  /*int steps;
   std::stringstream s_steps(data.msg);
   s_steps >> steps;
   
   //Calcs new stepper angle
   double spr;
   nh_.getParam("articulated/stepper/" + string_id.str() + "/spr", spr);
-  stepper_angle_current_[i] = stepper_angle_current_[i] + 2*M_PI * steps/(fabs(steps)*spr); 
+  stepper_angle_current_[i] = stepper_angle_current_[i] + 2*M_PI * steps/spr; */
+
+  double dq;
+  std::stringstream string_dq(data.msg);
+  string_dq >> dq;
+  stepper_angle_current_[i] = stepper_angle_current_[i] + dq;
 
   //Debug
   //ROS_ERROR_STREAM("Stepper " << i << " angle: " << stepper_angle_current_[i]);
@@ -117,17 +123,18 @@ void StepperDriverClient::setStepperCallback(std_msgs::Float64MultiArray goal)
 {
   for (int i = 0; i<3; i++)
   {
-    if (goal.data[i] != stepper_angle_current_[i])
+    if (fabs(goal.data[i] - stepper_angle_current_[i]) > M_PI/180)
     {
       double g = goal.data[i] - stepper_angle_current_[i];
       //Publish Step Goal in this funtion for the time being
       
       //spr is steps per revolution, the spr for each stepper is a param
-      double spr;
-      std::stringstream g_string;
-      int g_steps = calcSteps(g, i);
-      g_string << g_steps;
+      //double spr;
+      //int g_steps = calcSteps(g, i);
 
+      std::stringstream g_string;
+      g_string << g;
+      //SET STEP POS arduino topic now takes goal as dq (in radians)
       articulated::serial_msg g_msg;
       g_msg.micro_id = i;
       g_msg.topic = "set_step_pos";

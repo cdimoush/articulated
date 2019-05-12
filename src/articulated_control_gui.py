@@ -4,8 +4,10 @@ from Tkinter import *
 import rospy
 from std_msgs.msg import Float64
 from std_msgs.msg import Float64MultiArray
+from std_msgs.msg import Empty
 from geometry_msgs.msg import Pose
 from sensor_msgs.msg import JointState
+from articulated.msg import serial_msg
 
 import time
 import math
@@ -18,6 +20,7 @@ class ArmGui(object):
 
 		self.stepper_pub = rospy.Publisher('articulated/set_stepper_angle', Float64MultiArray, queue_size=2)
 		self.ik_pub = rospy.Publisher('articulated/pos_goal', Pose, queue_size=2)
+		self.serial_pub=rospy.Publisher('articulated/serial/send', serial_msg, queue_size=1);
 		ee_sub = rospy.Subscriber('articulated/ee_pos', Pose, self.eeCallback)
 		jt_sub = rospy.Subscriber('articulated/joint_state', JointState, self.jtCallback)
 
@@ -114,6 +117,9 @@ class ArmGui(object):
 		self.jt1_pos.grid(row=9, column=1, sticky=W)
 		self.jt2_pos.grid(row=9, column=2, sticky=E)
 
+		self.root.grid_rowconfigure(10, minsize=25)
+		bhold = Button(self.root, text='Toggle Hold', command=self.toggleHold)
+		bhold.grid(row=11, column=0)
 		
 		
 	def left0(self):
@@ -182,7 +188,13 @@ class ArmGui(object):
 		self.jt0_pos.configure(text=str(round(jt_pos.position[0] * (180/math.pi),3)))
 		self.jt1_pos.configure(text=str(round(jt_pos.position[1] * (180/math.pi),3)))
 		self.jt2_pos.configure(text=str(round(jt_pos.position[2] * (180/math.pi),3)))
-		
+	
+	def toggleHold(self):
+		tog_msg = serial_msg()
+		tog_msg.topic = "toggle_hold"
+		for i in range(3):
+			tog_msg.micro_id = i
+			self.serial_pub.publish(tog_msg)
 
 if __name__ == '__main__':
 	rospy.init_node('Articulated_GUI', anonymous=True)
