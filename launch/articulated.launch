@@ -1,6 +1,6 @@
 <launch>
-	<arg name="run_as_sim" default="false" />
-	<arg name="launch_gui" default="true" />
+	<arg name="run_as_sim" default="true" />
+	<arg name="launch_gui" default="false" />
 	<arg name="launch_rviz" default="true" />
 	<arg name="model" default="$(find articulated)/urdf/articulated.urdf"/>
 
@@ -10,7 +10,9 @@
 	<node name="gui" pkg="articulated" type="articulated_control_gui.py" output="screen" if="$(arg launch_gui)"/>
 	<node name="serial" pkg="articulated" type="serial_com_node.py" output="screen" unless="$(arg run_as_sim)"/>
 	<node name="pseudo_serial" pkg="articulated" type="pseudo_com.py" output="screen" if="$(arg run_as_sim)"/>
-	<node name="stepper_client" pkg="articulated" type="stepper_driver_client" output="screen"/>
 	<node name="tf_broadcaster" pkg="articulated" type="articulated_tf_broadcaster" output="screen"/>
 	<node type="rviz" name="rviz" pkg="rviz" args="-d $(find articulated)/config/rviz_config.rviz" if="$(arg launch_rviz)" />
+
+	<node name="stepper_client" pkg="articulated" type="stepper_driver_client" output="screen" if="$(arg launch_gui)"/>
+	<node name="articulated_action" pkg="articulated" type="articulated_action" output="screen" unless="$(arg launch_gui)"/>
 </launch>

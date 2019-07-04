@@ -1,0 +1,14 @@
+#goal definition
+float64 x
+float64 y
+float64 z
+---
+#result definition
+float64 x
+float64 y
+float64 z
+---
+#feedback
+float64 x
+float64 y
+float64 z

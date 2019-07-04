@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   geometry_msgs
   sensor_msgs
+  actionlib_msgs
   message_generation
   tf
 )
@@ -28,28 +29,30 @@ add_message_files(
 )
 
 ## Generate services in the 'srv' folder
- add_service_files(
-   FILES
-   StepperDriver.srv
- )
+add_service_files(
+ FILES
+ StepperDriver.srv
+)
 
 ## Generate actions in the 'action' folder
-# add_action_files(
-#   FILES
-#   Action1.action
-#   Action2.action
-# )
+add_action_files(
+  DIRECTORY action
+  FILES ik.action
+)
 
 ## Generate added messages and services with any dependencies listed here
  generate_messages(
    DEPENDENCIES
-   std_msgs geometry_msgs sensor_msgs # Or other packages containing msgs
+   std_msgs 
+   geometry_msgs 
+   sensor_msgs 
+   actionlib_msgs
  )
 
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES articulated
-  CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs sensor_msgs
+  CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs sensor_msgs actionlib_msgs
   #message_runtime
   #DEPENDS system_lib
 )
@@ -62,15 +65,16 @@ ${eigen3_INCLUDE_DIRS})
 add_library(mechanism_calculations src/mechanism_calculations.cpp)
 
 add_executable(stepper_driver_client src/stepper_driver_client.cpp)
-#add_dependencies(stepper_driver_client ${catkin_EXPORTED_TARGETS})
-target_link_libraries(stepper_driver_client ${catkin_LIBRARIES} ${eigen3_LIBRARIES} )
+target_link_libraries(stepper_driver_client ${catkin_LIBRARIES} ${eigen3_LIBRARIES})
 target_link_libraries(stepper_driver_client mechanism_calculations)
 
+add_executable(articulated_action src/articulated_action.cpp)
+target_link_libraries(articulated_action ${catkin_LIBRARIES} ${eigen3_LIBRARIES})
+target_link_libraries(articulated_action mechanism_calculations)
+
 add_executable(articulated_tf_broadcaster src/articulated_tf_broadcaster.cpp)
-target_link_libraries(articulated_tf_broadcaster ${catkin_LIBRARIES} ${eigen3_LIBRARIES} )
-#dd_executable(mechanism_calculations src/mechanism_calculations.cpp)
-#target_link_libraries(mechanism_calculations ${catkin_LIBRARIES} ${eigen3_LIBRARIES})
-#add_dependencies(mechanism_calculations ${catkin_EXPORTED_TARGETS})
+target_link_libraries(articulated_tf_broadcaster ${catkin_LIBRARIES} ${eigen3_LIBRARIES})
+
 
 #############
 ## Install ##
