@@ -73,10 +73,24 @@ void ArticulatedAction::ikCB(const articulated::ikGoalConstPtr &goal)
 
 void ArticulatedAction::ikFB()
 {
+	ik_feedback_.x = ee_pose_.position.x; 
+	ik_feedback_.y = ee_pose_.position.y; 
+	ik_feedback_.z = ee_pose_.position.z; 
+	ik_as_.publishFeedback(ik_feedback_);
+
 	if (fabs(ee_pose_.position.x - ik_goal_.position.x) < 0.01)
 	{
-		ik_as_.setSucceeded();
-		ROS_ERROR_STREAM("IK SUCCESS");
+		if (fabs(ee_pose_.position.x - ik_goal_.position.x) < 0.01)
+		{
+			if (fabs(ee_pose_.position.x - ik_goal_.position.x) < 0.01)
+			{	
+				ik_result_.x = ik_feedback_.x;
+				ik_result_.y = ik_feedback_.y;
+				ik_result_.z = ik_feedback_.z;
+				ik_as_.setSucceeded(ik_result_);
+				ROS_ERROR_STREAM("IK SUCCESS");
+			}
+		}
 	}
 }
 void ArticulatedAction::setSteppers(std_msgs::Float64MultiArray goal)
@@ -122,13 +136,13 @@ void ArticulatedAction::serialCallback(articulated::serial_msg data)
 	//CREATE NEW FUNCTION To UPDATE MECH
 	geometry_msgs::Pose ee;
 	ee_pose_ = mech_.getEEPose(stepper_angle_current_); 
-	//ee_pub_.publish(ee_pos_);
+	
 }
 
 int main(int argc, char **argv)
 {	
 	ros::init(argc, argv, "Articulated_Action");
-	ArticulatedAction articulated("IK_ACTION_SERVER");
+	ArticulatedAction articulated("ik_action");
 
 	return 0;		
 }	

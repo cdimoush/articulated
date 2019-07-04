@@ -72,6 +72,9 @@ add_executable(articulated_action src/articulated_action.cpp)
 target_link_libraries(articulated_action ${catkin_LIBRARIES} ${eigen3_LIBRARIES})
 target_link_libraries(articulated_action mechanism_calculations)
 
+add_executable(articulated_client src/articulated_simple_client.cpp)
+target_link_libraries(articulated_client ${catkin_LIBRARIES})
+
 add_executable(articulated_tf_broadcaster src/articulated_tf_broadcaster.cpp)
 target_link_libraries(articulated_tf_broadcaster ${catkin_LIBRARIES} ${eigen3_LIBRARIES})
 
