@@ -121,7 +121,6 @@ geometry_msgs::Pose MechCalc::forwardKinematics(sensor_msgs::JointState jt)
 
 std::tuple<double *, bool> MechCalc::inverseKinematics(geometry_msgs::Pose ee_pos_goal, double step_angle[3])
 {
-	ROS_ERROR_STREAM("Start IK");
 	double q[3];
 	double q_planar[2];
 	geometry_msgs::Pose ee_pos_current = forwardKinematics(joint_state_);
@@ -144,8 +143,7 @@ std::tuple<double *, bool> MechCalc::inverseKinematics(geometry_msgs::Pose ee_po
 	Eigen::VectorXd delta_pos(2);
 	delta_pos[0] = ee_pos_goal.position.x - ee_pos_current.position.x;
 	delta_pos[1] = ee_pos_goal.position.y - ee_pos_current.position.y;
-	ROS_ERROR_STREAM("Delta x: "<< delta_pos[0]);
-	ROS_ERROR_STREAM("Delta y: "<< delta_pos[1]);
+
 	//Calc # of steps based on largest delta pos value
 	double step_size = 0.0005;
 	double delta_max = 0; 
@@ -162,7 +160,6 @@ std::tuple<double *, bool> MechCalc::inverseKinematics(geometry_msgs::Pose ee_po
 		}
 	}
 	steps = round(delta_max/step_size);
-	ROS_ERROR_STREAM("IK Steps: "<< steps);
 
 	delta_x = delta_pos / steps;
 	for (int i = 0; i < steps; i ++)
@@ -171,12 +168,6 @@ std::tuple<double *, bool> MechCalc::inverseKinematics(geometry_msgs::Pose ee_po
 		Eigen::MatrixXd j = buildJacobian(q_planar);
 		Eigen::MatrixXd j_inv = j.transpose() * (j*j.transpose()).inverse();
 
-		//DEBUG
-		//double j_con = j_inv.norm() * j.norm();
-		//ROS_ERROR_STREAM(j);
-		//ROS_ERROR_STREAM(j_inv);
-		//ROS_ERROR_STREAM("Jacobian Condition: " << j_con);
-		
 		delta_theta = j_inv * delta_x;
 		q_planar[0] += delta_theta[0];
 		q_planar[1] += delta_theta[1];

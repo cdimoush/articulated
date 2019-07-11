@@ -16,11 +16,25 @@
 
 #include <actionlib/server/simple_action_server.h>
 #include <articulated/ikAction.h>
+#include <articulated/calibrateAction.h>
+
+//Calibrate Key Listener Stuff
+#include <signal.h>
+#include <termios.h>
+#include <stdio.h>
+
+#define KEYCODE_R 0x43 
+#define KEYCODE_L 0x44
+#define KEYCODE_U 0x41
+#define KEYCODE_D 0x42
+#define KEYCODE_Q 0x71
+#define KEYCODE_TAB 0x09
+
 
 class ArticulatedAction
 {
 public:
-	ArticulatedAction(std::string ik_server_name);
+	ArticulatedAction(std::string ik_server_name, std::string cal_server_name);
 	~ArticulatedAction();
 	
 private:
@@ -30,6 +44,10 @@ private:
 	int calcSteps(double angle, double stepper_id);
 	void ikCB(const articulated::ikGoalConstPtr &goal);
 	void ikFB();
+	void executeCalCB(const articulated::calibrateGoalConstPtr &goal);
+
+
+
 
 	//PUBLISHERS / SUBSCRIBERS
 	ros::Publisher joint_state_pub_;
@@ -42,6 +60,7 @@ private:
   	
 	//VARS
 	double stepper_angle_current_[3];
+	bool stepper_state_[3];
 	geometry_msgs::Pose ee_pose_;
 
   	//IKACTION
@@ -50,6 +69,10 @@ private:
 	articulated::ikFeedback ik_feedback_; //create messages that are used to published feedback/result
 	articulated::ikResult ik_result_;
 	geometry_msgs::Pose ik_goal_;
+	geometry_msgs::Pose ik_error_;
+
+	//CABLIBRATE ACTION
+	actionlib::SimpleActionServer<articulated::calibrateAction> cal_as_;
 };
 
 #endif

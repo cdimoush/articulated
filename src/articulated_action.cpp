@@ -1,8 +1,11 @@
 #include "articulated_action.h"
 
-ArticulatedAction::ArticulatedAction(std::string ik_server_name) :
+ArticulatedAction::ArticulatedAction(std::string ik_server_name, std::string cal_server_name) :
 	ik_as_(nh_, ik_server_name, false),
-	ik_action_name_(ik_server_name) 
+	ik_action_name_(ik_server_name),
+	//ERROR LINKING CALLBACK FUNCTION
+	cal_as_(nh_, cal_server_name, boost::bind(&ArticulatedAction::executeCalCB, this, _1),false)
+	//cal_action_name_(cal_server_name) 
 
 	//boost::bind(&ArticulatedAction::ikCB, this, _1)
 {
@@ -13,21 +16,24 @@ ArticulatedAction::ArticulatedAction(std::string ik_server_name) :
 	serial_sub_ = nh_.subscribe("articulated/serial/receive", 1000, &ArticulatedAction::serialCallback, this);
 
 	ik_as_.start();
+	cal_as_.start();
 
 	//SET INITIAL JOINT ANGLES
 	//NOTE: This should be replaced with a calibration procedure
 	stepper_angle_current_[0] = 0;
   	stepper_angle_current_[1] = M_PI/2;
   	stepper_angle_current_[2] = 0;
-  	//I DONT CARE ABOUT THE RETURNED GEO MSG, NEED TO GIVE MECH THE STARTING STEP ANGLES
-  	mech_.getEEPose(stepper_angle_current_);
+  	//Set Stepper States, 0->off 1->on
+  	stepper_state_[0] = 0;
+  	stepper_state_[1] = 0;
+  	stepper_state_[2] = 0;
+  	
+  	ee_pose_ = mech_.getEEPose(stepper_angle_current_);
 
   	
   	
 	while (ros::ok())
 	{
-		//Publish Joint State
-		joint_state_pub_.publish(mech_.joint_state_);
 		if (ik_as_.isActive()) //Check if IK is currently processing goal
 		{
 			ikFB();
@@ -39,6 +45,9 @@ ArticulatedAction::ArticulatedAction(std::string ik_server_name) :
 			ikCB(ik_as_.acceptNewGoal()); //Accept / Send goal to the IK Callback
 
 		}
+
+		//Publish Joint State
+		joint_state_pub_.publish(mech_.joint_state_);
 		ros::spinOnce();
 		ros::Duration(0.01).sleep();
 	}
@@ -78,43 +87,44 @@ void ArticulatedAction::ikFB()
 	ik_feedback_.z = ee_pose_.position.z; 
 	ik_as_.publishFeedback(ik_feedback_);
 
-	if (fabs(ee_pose_.position.x - ik_goal_.position.x) < 0.01)
+	for (int i=0; i<3; i++)
 	{
-		if (fabs(ee_pose_.position.x - ik_goal_.position.x) < 0.01)
-		{
-			if (fabs(ee_pose_.position.x - ik_goal_.position.x) < 0.01)
-			{	
-				ik_result_.x = ik_feedback_.x;
-				ik_result_.y = ik_feedback_.y;
-				ik_result_.z = ik_feedback_.z;
-				ik_as_.setSucceeded(ik_result_);
-				ROS_ERROR_STREAM("IK SUCCESS");
-			}
-		}
+		//Check if steppers are still working on goal
+		if (stepper_state_[i] == 1)
+			return;
 	}
+
+	//If steppers have completed goal
+	ik_result_.x = ik_feedback_.x;
+	ik_result_.y = ik_feedback_.y;
+	ik_result_.z = ik_feedback_.z;
+	ik_error_.position.x = ik_result_.x - ik_goal_.position.x;
+	ik_error_.position.y = ik_result_.y - ik_goal_.position.y;
+	ik_error_.position.z = ik_result_.z - ik_goal_.position.z;
+	ik_as_.setSucceeded(ik_result_);
+	ROS_ERROR_STREAM("IK SUCCESS");
+	ROS_ERROR_STREAM(ik_error_.position);
+
 }
 void ArticulatedAction::setSteppers(std_msgs::Float64MultiArray goal)
 {
+	//Send Step goal (dq) to arduinos
 	for (int i = 0; i<3; i++)
 	{
 		if (fabs(goal.data[i] - stepper_angle_current_[i]) > M_PI/180)
 		{
-		  double g = goal.data[i] - stepper_angle_current_[i];
-		  //Publish Step Goal in this funtion for the time being
-		  
-		  //spr is steps per revolution, the spr for each stepper is a param
-		  //double spr;
-		  //int g_steps = calcSteps(g, i);
+			stepper_state_[i] = 1; // Turn Stepper on
+			double g = goal.data[i] - stepper_angle_current_[i];
 
-		  std::stringstream g_string;
-		  g_string << g;
-		  //SET STEP POS arduino topic now takes goal as dq (in radians)
-		  articulated::serial_msg g_msg;
-		  g_msg.micro_id = i;
-		  g_msg.topic = "set_step_pos";
-		  g_msg.msg = g_string.str();
-		  serial_pub_.publish(g_msg);
-		  //ROS_ERROR_STREAM("sending stepper " << i << " goal of " << g_steps <<" steps");
+
+			std::stringstream g_string;
+			g_string << g;
+			//SET STEP POS arduino topic now takes goal as dq (in radians)
+			articulated::serial_msg g_msg;
+			g_msg.micro_id = i;
+			g_msg.topic = "set_step_pos";
+			g_msg.msg = g_string.str();
+			serial_pub_.publish(g_msg);
 		}
 	}
 }
@@ -128,21 +138,125 @@ void ArticulatedAction::serialCallback(articulated::serial_msg data)
 	std::stringstream string_id; 
 	string_id << i;
 
-	double dq;
-	std::stringstream string_dq(data.msg);
-	string_dq >> dq;
-	stepper_angle_current_[i] = stepper_angle_current_[i] + dq;
+	if (data.topic == "step_feedback")
+	{
+		double dq;
+		std::stringstream string_dq(data.msg);
+		string_dq >> dq;
+		stepper_angle_current_[i] = stepper_angle_current_[i] + dq;
 
-	//CREATE NEW FUNCTION To UPDATE MECH
-	geometry_msgs::Pose ee;
-	ee_pose_ = mech_.getEEPose(stepper_angle_current_); 
+		geometry_msgs::Pose ee;
+		ee_pose_ = mech_.getEEPose(stepper_angle_current_); 
+	}
+	else if (data.topic == "step_goal")
+
+		if(data.msg == "1")
+		{
+			stepper_state_[i] = 0;
+		}
 	
+}
+
+void quitKeyLoop(int sig)
+{
+  (void)sig;
+  //	tcsetattr(kfd, TCSANOW, &cooked);
+  ros::shutdown();
+  exit(0);
+}
+
+void ArticulatedAction::executeCalCB(const articulated::calibrateGoalConstPtr &goal)
+{
+	int kfd = 0;
+	struct termios cooked, raw;
+
+	//void (*keyQuitter)(int);
+
+	//keyQuitter = signal(SIGINT,quitKeyLoop);
+
+	char c;
+	bool dirty=false;
+
+	// get the console in raw mode                                                              
+	tcgetattr(kfd, &cooked);
+	memcpy(&raw, &cooked, sizeof(struct termios));
+	raw.c_lflag &=~ (ICANON | ECHO);
+	// Setting a new line, then end of file                         
+	raw.c_cc[VEOL] = 1;
+	raw.c_cc[VEOF] = 2;
+	tcsetattr(kfd, TCSANOW, &raw);
+
+	puts("ENTERING CALIBRATION MODE");
+	puts("---------------------------");
+	puts("Use <-- and --> arrow keys to conrol joints");
+	puts("Press Tab to switch to the next joint");
+	puts("---------------------------");
+	puts("");
+	
+	
+	int i = 0;
+	double dq = 0;
+
+	puts("Calibrate 1st Stepper");
+	while (i<3)
+	{
+
+		// get the next event from the keyboard  
+		if(read(kfd, &c, 1) < 0)
+		{
+		  perror("read():");
+		  exit(-1);
+		}
+
+		switch(c)
+		{
+		  case KEYCODE_L:
+		  	dq = -1;
+		    ROS_ERROR_STREAM("LEFT");
+		    break;
+		  case KEYCODE_R:
+		  	dq = 1;
+		    ROS_ERROR_STREAM("RIGHT");
+		    break;
+		  case KEYCODE_TAB:
+		    dirty = true;
+		    break;
+		}
+
+		if (dq != 0)
+		{
+			dq = M_PI/16 * dq;
+
+			std::stringstream g_string;
+			g_string << dq;
+			//SET STEP POS arduino topic now takes goal as dq (in radians)
+			articulated::serial_msg g_msg;
+			g_msg.micro_id = i;
+			g_msg.topic = "set_step_pos";
+			g_msg.msg = g_string.str();
+			serial_pub_.publish(g_msg);
+
+			dq = 0;
+		}
+
+		if(dirty ==true)
+		{
+			i ++;;
+			puts("Next Stepper");
+		  	dirty=false;
+		 }
+	}
+
+
+	tcsetattr(kfd, TCSANOW, &cooked);
+	articulated::calibrateResult result;
+	cal_as_.setSucceeded(result);
 }
 
 int main(int argc, char **argv)
 {	
 	ros::init(argc, argv, "Articulated_Action");
-	ArticulatedAction articulated("ik_action");
+	ArticulatedAction articulated("ik_action", "calibration_action");
 
 	return 0;		
 }	

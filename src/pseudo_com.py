@@ -39,15 +39,17 @@ class SerialCom:
 								receive_msg.msg = str(self.dq)
 							if x < 0:
 								self._stepper_states[i] -= self.dq
-								receive_msg.msg = str(-1*self.dq)	
-						else:
-							self._stepper_states[i] += x
-							receive_msg = serial_msg()
-							receive_msg.micro_id = i
-							receive_msg.topic = "step_feedback"
-							receive_msg.msg = str(x)
+								receive_msg.msg = str(-1*self.dq)
 
-						self._pub.publish(receive_msg)
+							self._pub.publish(receive_msg)	
+						else:
+							goal_msg = serial_msg()
+							goal_msg.micro_id = i
+							goal_msg.topic = "step_goal"
+							goal_msg.msg = str(1)
+							self._pub.publish(goal_msg)
+
+						
 			else:
 				for i in range(3):
 					if self._stepper_states[i] != 0:
@@ -56,6 +58,7 @@ class SerialCom:
 				rospy.Rate(500).sleep()
 
 	def sendMsgCallback(self, send_msg):
+		#Get angle goal
 		if send_msg.topic == "set_step_pos":
 			self._stepper_goals[send_msg.micro_id] = float(send_msg.msg)
 
