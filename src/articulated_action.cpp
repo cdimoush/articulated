@@ -157,21 +157,12 @@ void ArticulatedAction::serialCallback(articulated::serial_msg data)
 	
 }
 
-void quitKeyLoop(int sig)
-{
-  (void)sig;
-  //	tcsetattr(kfd, TCSANOW, &cooked);
-  ros::shutdown();
-  exit(0);
-}
-
 void ArticulatedAction::executeCalCB(const articulated::calibrateGoalConstPtr &goal)
 {
 	int kfd = 0;
 	struct termios cooked, raw;
 
 	//void (*keyQuitter)(int);
-
 	//keyQuitter = signal(SIGINT,quitKeyLoop);
 
 	char c;
@@ -193,9 +184,9 @@ void ArticulatedAction::executeCalCB(const articulated::calibrateGoalConstPtr &g
 	puts("---------------------------");
 	puts("");
 	
-	
 	int i = 0;
 	double dq = 0;
+	double q = 0;
 
 	puts("Calibrate 1st Stepper");
 	while (i<3)
@@ -222,13 +213,14 @@ void ArticulatedAction::executeCalCB(const articulated::calibrateGoalConstPtr &g
 		    dirty = true;
 		    break;
 		}
-
+		
 		if (dq != 0)
 		{
-			dq = M_PI/16 * dq;
+			ROS_ERROR_STREAM("Publish to Arduino");
+			q = q + M_PI/16 * dq;
 
 			std::stringstream g_string;
-			g_string << dq;
+			g_string << q;
 			//SET STEP POS arduino topic now takes goal as dq (in radians)
 			articulated::serial_msg g_msg;
 			g_msg.micro_id = i;
@@ -241,18 +233,37 @@ void ArticulatedAction::executeCalCB(const articulated::calibrateGoalConstPtr &g
 
 		if(dirty ==true)
 		{
-			i ++;;
-			puts("Next Stepper");
-		  	dirty=false;
+			i ++;
+			dirty=false;
+			if (i<3)
+				puts("Next Stepper");	
+			else
+				puts("Finishing Calibration");
 		 }
+
 	}
 
 
 	tcsetattr(kfd, TCSANOW, &cooked);
-	articulated::calibrateResult result;
+	
+	stepper_angle_current_[0] = 0;
+  	stepper_angle_current_[1] = M_PI/2;
+  	stepper_angle_current_[2] = 0;
+  	ee_pose_ = mech_.getEEPose(stepper_angle_current_);	
+
+  	articulated::calibrateResult result;
 	cal_as_.setSucceeded(result);
 }
-
+/*
+void quitKeyLoop(int sig)
+{
+	//If Articulated Action is killed with keylistener active
+	(void)sig;
+	tcsetattr(kfd, TCSANOW, &cooked);
+	ros::shutdown();
+	exit(0);
+}
+*/
 int main(int argc, char **argv)
 {	
 	ros::init(argc, argv, "Articulated_Action");
