@@ -194,7 +194,18 @@ std::tuple<double *, bool> MechCalc::inverseKinematics(geometry_msgs::Pose ee_po
 		return std::make_tuple(step_angle_goal, true);
 	}
 	//IF NOT FAILURE THEN CALCULATE STEPPER ANGLES FROM JOINT ANGLES
+	//CHECK IF STEPPER ANGLES ARE IN DESIRED RANGE
 	std::tie(step_angle_goal, flag) = calcStepperAngles(joint_state_goal, 1000, 0.0001);
+	for (int i = 0; i < 3; i++)
+	{
+		if (fabs(step_angle_goal[i]) > M_PI/2 )
+		{
+			ROS_ERROR_STREAM("calculated goal angle for stepper " << i << "is " << step_angle_goal);
+			ROS_ERROR_STREAM("value is too LARGE");
+			flag = true;
+			break;
+		}
+	}
 	if (flag)
 	{
 		ROS_ERROR_STREAM("Could not solve for stepper angles");

@@ -92,6 +92,7 @@ void setStepperPos(double dq)
   if (angle_counter != 0)
   {
     ser.publish("step_feedback", String(dir_multi * angle_counter));
+    ser.publish("step_goal", "1");
   }
 
 }

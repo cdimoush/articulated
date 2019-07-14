@@ -29,6 +29,7 @@ ArticulatedAction::ArticulatedAction(std::string ik_server_name, std::string cal
   	stepper_state_[2] = 0;
   	
   	ee_pose_ = mech_.getEEPose(stepper_angle_current_);
+  	
 
   	
   	
@@ -55,7 +56,25 @@ ArticulatedAction::ArticulatedAction(std::string ik_server_name, std::string cal
 
 ArticulatedAction::~ArticulatedAction()
 {
+	//FUNCTION IS NOT BEING CALLED
+	//MAYBE TRY
+	//signal(SIGINT,quitProcess);
+	ROS_ERROR_STREAM("YOU KILLED THE ROBOT :/");
+	ROS_ERROR_STREAM("");
+	ROS_ERROR_STREAM("De-energizing steppers... ");
+	for (int i = 0; i < 3; i++)
+	{
+		ROS_ERROR_STREAM("i");
+		articulated::serial_msg s;
+		s.micro_id = i;
+		s.topic = "set_step_pos";
+		s.msg = "toggle_hold";
+		serial_pub_.publish(s);
+	}
 
+	ROS_ERROR_STREAM("Quiting ROS");
+	ros::shutdown();
+	exit(0);
 }
 
 void ArticulatedAction::ikCB(const articulated::ikGoalConstPtr &goal)
@@ -77,7 +96,11 @@ void ArticulatedAction::ikCB(const articulated::ikGoalConstPtr &goal)
 
 		setSteppers(goal_msg_out);
 	}
-	else ROS_ERROR_STREAM("IK SOLUTION IS INACCURATE OR DOES NOT EXIST");
+	else 
+	{
+		ROS_ERROR_STREAM("IK SOLUTION IS INACCURATE OR DOES NOT EXIST");
+		ik_as_.setPreempted();
+	}
 }
 
 void ArticulatedAction::ikFB()
@@ -102,8 +125,8 @@ void ArticulatedAction::ikFB()
 	ik_error_.position.y = ik_result_.y - ik_goal_.position.y;
 	ik_error_.position.z = ik_result_.z - ik_goal_.position.z;
 	ik_as_.setSucceeded(ik_result_);
-	ROS_ERROR_STREAM("IK SUCCESS");
-	ROS_ERROR_STREAM(ik_error_.position);
+	//ROS_ERROR_STREAM("IK SUCCESS");
+	//ROS_ERROR_STREAM(ik_error_.position);
 
 }
 void ArticulatedAction::setSteppers(std_msgs::Float64MultiArray goal)
@@ -124,6 +147,8 @@ void ArticulatedAction::setSteppers(std_msgs::Float64MultiArray goal)
 			g_msg.micro_id = i;
 			g_msg.topic = "set_step_pos";
 			g_msg.msg = g_string.str();
+
+			ROS_ERROR_STREAM("Stepper " << i << ": Sending Goal of " << g);
 			serial_pub_.publish(g_msg);
 		}
 	}
@@ -152,6 +177,7 @@ void ArticulatedAction::serialCallback(articulated::serial_msg data)
 
 		if(data.msg == "1")
 		{
+			ROS_ERROR_STREAM("Stepper " << i << ": Goal Complete");
 			stepper_state_[i] = 0;
 		}
 	
@@ -217,7 +243,7 @@ void ArticulatedAction::executeCalCB(const articulated::calibrateGoalConstPtr &g
 		if (dq != 0)
 		{
 			ROS_ERROR_STREAM("Publish to Arduino");
-			q = q + M_PI/16 * dq;
+			q = M_PI/16 * dq;
 
 			std::stringstream g_string;
 			g_string << q;
@@ -254,16 +280,27 @@ void ArticulatedAction::executeCalCB(const articulated::calibrateGoalConstPtr &g
   	articulated::calibrateResult result;
 	cal_as_.setSucceeded(result);
 }
+
 /*
-void quitKeyLoop(int sig)
+void quitProcess(int sig)
 {
-	//If Articulated Action is killed with keylistener active
+	//If Articulated Action is killed with key interupt
 	(void)sig;
-	tcsetattr(kfd, TCSANOW, &cooked);
+
+	for (int i = 0; i < 3; i++)
+	{
+		articulated::serial_msg s;
+		s.micro_id = i;
+		s.topic = "set_step_pos";
+		s.msg = "toggle_hold";
+		serial_pub_.publish(s);
+	}
+
 	ros::shutdown();
 	exit(0);
 }
 */
+
 int main(int argc, char **argv)
 {	
 	ros::init(argc, argv, "Articulated_Action");

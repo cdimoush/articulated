@@ -13,10 +13,10 @@ const int pul_pin = 4;
 //Vars
 SimpleSerial ser;
 const int stepper_id = 2;
-const int pulsePerRev = 1600;
+const int pulsePerRev = 6400;
 const double qPerPulse = 2*PI / pulsePerRev;
 const double feedback_resolution = PI/16;
-const int time_delay = 1000;
+const int time_delay = 500;
 
 
 void setup() 
@@ -92,6 +92,7 @@ void setStepperPos(double dq)
   if (angle_counter != 0)
   {
     ser.publish("step_feedback", String(dir_multi * angle_counter));
+    ser.publish("step_goal", "1");
   }
 
 }
