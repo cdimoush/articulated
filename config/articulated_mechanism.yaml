@@ -12,7 +12,7 @@ joint/2/id: "joint2"
 joint/2/transform: 0.14 #same as link2 length
 stepper/status/id: false
 stepper/0/spr: 200 #steps per revolution
-stepper/0/hub: 0.015
+stepper/0/hub: 0.014
 stepper/1/spr: 5370 
 stepper/2/spr: 200
 stepper/2/x: -0.0525 #These are offsets from the servo 1 hub

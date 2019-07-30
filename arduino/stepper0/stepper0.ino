@@ -13,10 +13,10 @@ const int pul_pin = 4;
 //Vars
 SimpleSerial ser;
 const int stepper_id = 0;
-const int pulsePerRev = 1600;
+const int pulsePerRev = 6400;
 const double qPerPulse = 2*PI / pulsePerRev;
-const double feedback_resolution = PI/64;
-const int time_delay = 600;
+const double feedback_resolution = PI/8;
+const int time_delay = 15;
 
 
 void setup() 
@@ -64,30 +64,46 @@ void setStepperPos(double dq)
   int dir_multi;
   if (dq < 0)
   {
-    digitalWrite(dir_pin, HIGH);
+    digitalWrite(dir_pin, LOW);
     dir_multi = -1;
   }
   else
   {
-    digitalWrite(dir_pin, LOW);
+    digitalWrite(dir_pin, HIGH);
    dir_multi = 1;
   }
 
   //incrementally step to goal
   double pulses = pulsePerRev * fabs(dq)/(2*PI);
+  Serial.print("Pulses: ");
+  Serial.println(pulses);
   double angle_counter = 0;
-  for(int i = 0; i < pulses; i++)
+  unsigned long t = micros();
+  for(unsigned long int i = 0; i < pulses; i++)
   {
+    while (time_delay > micros() - t)
+    {
+      //delayMicroseconds(1);
+      continue;
+      //Serial.println("Wait");
+      //delayMicroseconds(5);
+    }
     digitalWrite(pul_pin, HIGH);
     delayMicroseconds(time_delay);
     digitalWrite(pul_pin, LOW);
-    delayMicroseconds(time_delay);
+    t = micros();
+    
     angle_counter = angle_counter + qPerPulse;
+
+    /*
     if (angle_counter >= feedback_resolution)
     {
        ser.publish("step_feedback", String(dir_multi * angle_counter));
        angle_counter = 0;
+       Serial.println(micros()-t);
     }
+    */
+    
   }
   if (angle_counter != 0)
   {

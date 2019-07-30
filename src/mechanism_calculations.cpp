@@ -196,7 +196,7 @@ std::tuple<double *, bool> MechCalc::inverseKinematics(geometry_msgs::Pose ee_po
 	//IF NOT FAILURE THEN CALCULATE STEPPER ANGLES FROM JOINT ANGLES
 	//CHECK IF STEPPER ANGLES ARE IN DESIRED RANGE
 	std::tie(step_angle_goal, flag) = calcStepperAngles(joint_state_goal, 1000, 0.0001);
-	for (int i = 0; i < 3; i++)
+	for (int i = 1; i < 3; i++)
 	{
 		if (fabs(step_angle_goal[i]) > M_PI/2 )
 		{
@@ -262,7 +262,7 @@ std::tuple<double *, bool> MechCalc::calcStepperAngles(sensor_msgs::JointState j
 		theta = q[1] + q[2];
 	}
 	double f[2];
-	double s[2][2] = {{q[1], -1.6}, {q[1], 1.6}};
+	double s[2][2] = {{q[1], -M_PI/2}, {q[1], M_PI/2}};
 	double s_new;
 	//SECANT METHOD.... find step angle to that results in known theta
 	//Looking for convergance with 0

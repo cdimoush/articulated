@@ -84,11 +84,13 @@ void setStepperPos(double dq)
     digitalWrite(pul_pin, LOW);
     delayMicroseconds(time_delay);
     angle_counter = angle_counter + qPerPulse;
+    /*
     if (angle_counter >= feedback_resolution)
     {
        ser.publish("step_feedback", String(dir_multi * angle_counter));
        angle_counter = 0;
     }
+    */
   }
   if (angle_counter != 0)
   {

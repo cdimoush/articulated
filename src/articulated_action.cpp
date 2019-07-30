@@ -42,7 +42,7 @@ ArticulatedAction::ArticulatedAction(std::string ik_server_name, std::string cal
 
 		else if (ik_as_.isNewGoalAvailable()) //Check if new goal available
 		{
-			ROS_ERROR_STREAM("NEW GOAL");
+			//ROS_ERROR_STREAM("NEW GOAL");
 			ikCB(ik_as_.acceptNewGoal()); //Accept / Send goal to the IK Callback
 
 		}
@@ -125,19 +125,26 @@ void ArticulatedAction::ikFB()
 	ik_error_.position.y = ik_result_.y - ik_goal_.position.y;
 	ik_error_.position.z = ik_result_.z - ik_goal_.position.z;
 	ik_as_.setSucceeded(ik_result_);
-	//ROS_ERROR_STREAM("IK SUCCESS");
-	//ROS_ERROR_STREAM(ik_error_.position);
+	ROS_ERROR_STREAM("IK SUCCESS");
+	ROS_ERROR_STREAM("----------");
+	ROS_ERROR_STREAM("position");
+	ROS_ERROR_STREAM(ee_pose_.position);
+	ROS_ERROR_STREAM("error");
+	ROS_ERROR_STREAM(ik_error_.position);
 
 }
 void ArticulatedAction::setSteppers(std_msgs::Float64MultiArray goal)
 {
 	//Send Step goal (dq) to arduinos
+	//ROS_ERROR_STREAM("Setting Stepper Angles");
 	for (int i = 0; i<3; i++)
 	{
-		if (fabs(goal.data[i] - stepper_angle_current_[i]) > M_PI/180)
+
+		if (fabs(goal.data[i] - stepper_angle_current_[i]) > 0.005)
 		{
 			stepper_state_[i] = 1; // Turn Stepper on
 			double g = goal.data[i] - stepper_angle_current_[i];
+			ROS_ERROR_STREAM("Stepper " << i << " Rad Diff: " << g);
 
 
 			std::stringstream g_string;
@@ -148,7 +155,7 @@ void ArticulatedAction::setSteppers(std_msgs::Float64MultiArray goal)
 			g_msg.topic = "set_step_pos";
 			g_msg.msg = g_string.str();
 
-			ROS_ERROR_STREAM("Stepper " << i << ": Sending Goal of " << g);
+			//ROS_ERROR_STREAM("Stepper " << i << ": Sending Goal of " << g);
 			serial_pub_.publish(g_msg);
 		}
 	}
@@ -177,7 +184,7 @@ void ArticulatedAction::serialCallback(articulated::serial_msg data)
 
 		if(data.msg == "1")
 		{
-			ROS_ERROR_STREAM("Stepper " << i << ": Goal Complete");
+			//ROS_ERROR_STREAM("Stepper " << i << ": Goal Complete");
 			stepper_state_[i] = 0;
 		}
 	
