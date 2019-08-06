@@ -1,7 +1,7 @@
 <launch>
 	<arg name="run_as_sim" default="false" />
 	<arg name="launch_gui" default="false" />
-	<arg name="launch_rviz" default="false" />
+	<arg name="launch_rviz" default="true" />
 	<arg name="model" default="$(find articulated)/urdf/articulated.urdf"/>
 
 	<param name="robot_description" command="$(find xacro)/xacro --inorder $(arg model)" />

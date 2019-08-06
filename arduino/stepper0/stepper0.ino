@@ -16,7 +16,7 @@ const int stepper_id = 0;
 const int pulsePerRev = 6400;
 const double qPerPulse = 2*PI / pulsePerRev;
 const double feedback_resolution = PI/8;
-const int time_delay = 15;
+const int time_delay = 100;
 
 
 void setup() 
