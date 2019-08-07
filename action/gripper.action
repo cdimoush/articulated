@@ -1,0 +1,9 @@
+#goal definition
+bool open
+bool close
+---
+#result definition
+bool open
+bool close
+---
+#feedback

@@ -37,7 +37,7 @@ add_service_files(
 ## Generate actions in the 'action' folder
 add_action_files(
   DIRECTORY action
-  FILES ik.action calibrate.action
+  FILES ik.action calibrate.action gripper.action
 )
 
 ## Generate added messages and services with any dependencies listed here
@@ -71,6 +71,9 @@ target_link_libraries(stepper_driver_client mechanism_calculations)
 add_executable(articulated_action src/articulated_action.cpp)
 target_link_libraries(articulated_action ${catkin_LIBRARIES} ${eigen3_LIBRARIES})
 target_link_libraries(articulated_action mechanism_calculations)
+
+add_executable(articulated_gripper src/articulated_gripper.cpp)
+target_link_libraries(articulated_gripper ${catkin_LIBRARIES})
 
 add_executable(articulated_client src/articulated_simple_client.cpp)
 target_link_libraries(articulated_client ${catkin_LIBRARIES})

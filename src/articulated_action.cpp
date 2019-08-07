@@ -39,14 +39,11 @@ ArticulatedAction::ArticulatedAction(std::string ik_server_name, std::string cal
 		{
 			ikFB();
 		}
-
 		else if (ik_as_.isNewGoalAvailable()) //Check if new goal available
 		{
 			//ROS_ERROR_STREAM("NEW GOAL");
 			ikCB(ik_as_.acceptNewGoal()); //Accept / Send goal to the IK Callback
-
 		}
-
 		//Publish Joint State
 		joint_state_pub_.publish(mech_.joint_state_);
 		ros::spinOnce();

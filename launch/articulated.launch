@@ -1,7 +1,7 @@
 <launch>
-	<arg name="run_as_sim" default="false" />
+	<arg name="run_as_sim" default="true" />
 	<arg name="launch_gui" default="false" />
-	<arg name="launch_rviz" default="true" />
+	<arg name="launch_rviz" default="false" />
 	<arg name="model" default="$(find articulated)/urdf/articulated.urdf"/>
 
 	<param name="robot_description" command="$(find xacro)/xacro --inorder $(arg model)" />
@@ -15,4 +15,5 @@
 
 	<node name="stepper_client" pkg="articulated" type="stepper_driver_client" output="screen" if="$(arg launch_gui)"/>
 	<node name="articulated_action" pkg="articulated" type="articulated_action" output="screen" unless="$(arg launch_gui)"/>
+	<node name="articulated_gripper" pkg="articulated" type="articulated_gripper" output="screen"/>
 </launch>

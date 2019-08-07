@@ -27,11 +27,7 @@ ser.subscribe("stepper_id", "empty", sendStepperId);
 ser.subscribe("calibrate", "empty", calibrate);
 ser.subscribe("open_gripper", "empty", openGripper);
 ser.subscribe("close_gripper", "empty", closeGripper);
-
-
 }
-
-
 
 void loop()
 {
@@ -48,6 +44,7 @@ void openGripper()
     delay(2);
   }
   delay(1500);
+  ser.publish("grip_feedback", "0");
 }
 
 void closeGripper()
@@ -58,8 +55,8 @@ void closeGripper()
     delay(2);
   }
   delay(1500);
+  ser.publish("grip_feedback", "1");
 }
-
 
 void sendStepperId()
 {

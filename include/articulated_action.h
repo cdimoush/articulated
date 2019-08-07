@@ -46,9 +46,6 @@ private:
 	void ikFB();
 	void executeCalCB(const articulated::calibrateGoalConstPtr &goal);
 
-
-
-
 	//PUBLISHERS / SUBSCRIBERS
 	ros::Publisher joint_state_pub_;
 	ros::Publisher serial_pub_;
