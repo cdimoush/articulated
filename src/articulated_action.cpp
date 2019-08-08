@@ -215,6 +215,7 @@ void ArticulatedAction::executeCalCB(const articulated::calibrateGoalConstPtr &g
 	puts("");
 	
 	int i = 0;
+	int counter = 0;
 	double dq = 0;
 	double q = 0;
 
@@ -225,8 +226,9 @@ void ArticulatedAction::executeCalCB(const articulated::calibrateGoalConstPtr &g
 		// get the next event from the keyboard  
 		if(read(kfd, &c, 1) < 0)
 		{
-		  perror("read():");
-		  exit(-1);
+			counter = 0;
+			perror("read():");
+			exit(-1);
 		}
 
 		switch(c)
@@ -240,25 +242,36 @@ void ArticulatedAction::executeCalCB(const articulated::calibrateGoalConstPtr &g
 		    ROS_ERROR_STREAM("RIGHT");
 		    break;
 		  case KEYCODE_TAB:
+		  	dq = 0;
 		    dirty = true;
 		    break;
 		}
 		
 		if (dq != 0)
 		{
-			ROS_ERROR_STREAM("Publish to Arduino");
-			q = M_PI/16 * dq;
+			if (counter == 0)
+			{
+				ROS_ERROR_STREAM("Publish to Arduino");
+				//q = M_PI/16 * dq;
 
-			std::stringstream g_string;
-			g_string << q;
-			//SET STEP POS arduino topic now takes goal as dq (in radians)
-			articulated::serial_msg g_msg;
-			g_msg.micro_id = i;
-			g_msg.topic = "set_step_pos";
-			g_msg.msg = g_string.str();
-			serial_pub_.publish(g_msg);
+				std::stringstream g_string;
+				g_string << dq;
+				//SET STEP POS arduino topic now takes goal as dq (in radians)
+				articulated::serial_msg g_msg;
+				g_msg.micro_id = i;
+				g_msg.topic = "calibrate";
+				g_msg.msg = g_string.str();
+				serial_pub_.publish(g_msg);
+			}
 
-			dq = 0;
+			counter ++;
+			ros::Duration(0.01).sleep();
+			if (counter > 10)
+			{
+
+				counter = 0;
+			}
+
 		}
 
 		if(dirty ==true)

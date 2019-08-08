@@ -18,6 +18,8 @@ const double qPerPulse = 2*PI / pulsePerRev;
 const double feedback_resolution = PI/8;
 const int time_delay = 100;
 
+bool cal_pulse = false;
+
 
 void setup() 
 {
@@ -41,14 +43,19 @@ void sendStepperId()
   ser.publish("stepper_id", String(stepper_id));
 }
 
-void calibrate()
+void calibrate(int dir)
 {
-  digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on 
-  delay(500);                       // wait for half a second
-  digitalWrite(LED_BUILTIN, LOW);    // turn the LED off 
-  delay(500);
-
-  ser.publish("calibrate", "Calibration Complete!");
+  digitalWrite(ena_pin, LOW);
+  if (dir < 0)
+  {
+    digitalWrite(dir_pin, LOW);
+  }
+  else
+  {
+    digitalWrite(dir_pin, HIGH);
+  }
+  cal_pulse = !cal_pulse;
+  digitalWrite(pul_pin, cal_pulse);
 }
 
 void toggleHold()

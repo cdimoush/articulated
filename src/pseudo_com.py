@@ -58,9 +58,24 @@ class SerialCom:
 				rospy.Rate(500).sleep()
 
 	def sendMsgCallback(self, send_msg):
-		#Get angle goal
+		#Intercept arduino_msg
 		if send_msg.topic == "set_step_pos":
 			self._stepper_goals[send_msg.micro_id] = float(send_msg.msg)
+		if send_msg.topic == "open_gripper":
+			rospy.Rate(500).sleep()
+			goal_msg = serial_msg()
+			goal_msg.micro_id = send_msg.micro_id
+			goal_msg.topic = "grip_feedback"
+			goal_msg.msg = str(0)
+			self._pub.publish(goal_msg)
+		if send_msg.topic == "close_gripper":
+			rospy.Rate(500).sleep()
+			goal_msg = serial_msg()
+			goal_msg.micro_id = send_msg.micro_id
+			goal_msg.topic = "grip_feedback"
+			goal_msg.msg = str(1)
+			self._pub.publish(goal_msg)
+
 
 if __name__ == '__main__':
 	rospy.init_node('Psuedo_Serial_Com')
