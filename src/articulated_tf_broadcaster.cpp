@@ -32,7 +32,8 @@ class ArticulatedTfBroadcaster
 ArticulatedTfBroadcaster::ArticulatedTfBroadcaster()
 {
   joint_sub_ = nh_.subscribe("articulated/joint_state", 10, &ArticulatedTfBroadcaster::jtCallback, this);
-  build();
+  
+  ros::Duration(1).sleep();build();
   while (ros::ok())
   {
     broadcastTf();
@@ -46,14 +47,22 @@ void ArticulatedTfBroadcaster::build()
   //SET TF FRAME IDS AND INIT TRANSFROMS
   /////////////////////////////////////////////
 
-  //number of joints... Get number from parameters
+  //number of joints... Get number from parameters (Add 1 if using gripper)
   //number of transforms.... world->ee... so j+2
   int j; 
+  bool gripper_bool;
   nh_.getParam("/articulated/joints", j);
-  t_ = j + 2; 
+  nh_.getParam("/articulated/gripper/bool", gripper_bool);
+  
+  t_ = j + 2;  
+  if (gripper_bool)
+  {
+    ROS_ERROR_STREAM("TF_BR: CREATING GRIPPER TF");
+    t_ ++;
+  }
+
   joint_transform_.transforms.resize(t_);
 
-  
   //id_list stores all the frame_ids for the tfs
   std::vector<std::string> id_list;
   id_list.push_back("world");
@@ -68,6 +77,10 @@ void ArticulatedTfBroadcaster::build()
     id_list.push_back(j_id);
   }
   id_list.push_back("ee");
+  if (gripper_bool)
+  {
+    id_list.push_back("gripper");
+  }
   //init all translation and rotation tfs as blanks
   for(int i = 0; i < t_; i ++)
   {
@@ -93,7 +106,7 @@ void ArticulatedTfBroadcaster::build()
   nh_.getParam("articulated/base/transform", s_tran);
   static_tran_list.push_back(s_tran);
   //ERROR IN DAE CORDINATE DEFINITION
-  static_tran_list.push_back(0.025); //no static trans from base -> slide
+  static_tran_list.push_back(0); //no static trans from base -> slide
   for (int i = 0; i < j; i++)
   {
     std::stringstream j_num; 
@@ -101,6 +114,12 @@ void ArticulatedTfBroadcaster::build()
     nh_.getParam("articulated/joint/" + j_num.str() + "/transform", s_tran);
     //ROS_ERROR_STREAM(s_tran); 
     static_tran_list.push_back(s_tran);
+  }
+  if (gripper_bool)
+  {
+    float gripper_transform;
+    nh_.getParam("articulated/gripper/transform", gripper_transform);
+    static_tran_list.push_back(gripper_transform);
   }
   //set statics transforms 
   for(int i = 0; i < t_; i ++)

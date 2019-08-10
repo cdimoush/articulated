@@ -51,6 +51,7 @@ ArticulatedGripper::ArticulatedGripper(std::string gripper_server_name) :
 		{
 			if (goal_state_ == gripper_state_)
 			{
+				ROS_INFO("Gripper Action: Goal succeeded");
 				nh_.setParam("articulated/gripper/state", gripper_state_);
 				articulated::gripperResult result;
 				result.close = gripper_state_;
@@ -99,21 +100,21 @@ void ArticulatedGripper::gripCB(const articulated::gripperGoalConstPtr &goal)
 	//State (false -> open // true -> close)
 	if (gripper_state_ && goal->open) //Gripper is closed & goal is to open
 	{
-		ROS_INFO("Opening Gripper");
+		ROS_INFO("Gripper Action: Opening Gripper");
 		g_msg.topic = "open_gripper";
 		goal_state_ = false;
 		serial_pub_.publish(g_msg);
 	}
 	else if (!gripper_state_ && goal->close) //Gripper is open & goal is to close
 	{
-		ROS_INFO("Closing Gripper");
+		ROS_INFO("Gripper Action: Closing Gripper");
 		g_msg.topic = "close_gripper";
 		goal_state_ = true;
 		serial_pub_.publish(g_msg);
 	}
 	else
 	{
-		ROS_ERROR_STREAM("GRIPPER GOAL == CURRENT GRIP STATE");
+		ROS_ERROR_STREAM("Gripper Action: GRIPPER GOAL == CURRENT GRIP STATE");
 		ROS_ERROR_STREAM("CANCELING");
 		grip_as_.setPreempted();
 	}

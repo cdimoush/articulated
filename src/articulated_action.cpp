@@ -30,9 +30,6 @@ ArticulatedAction::ArticulatedAction(std::string ik_server_name, std::string cal
   	
   	ee_pose_ = mech_.getEEPose(stepper_angle_current_);
   	
-
-  	
-  	
 	while (ros::ok())
 	{
 		if (ik_as_.isActive()) //Check if IK is currently processing goal
@@ -76,6 +73,7 @@ ArticulatedAction::~ArticulatedAction()
 
 void ArticulatedAction::ikCB(const articulated::ikGoalConstPtr &goal)
 {
+	ROS_INFO("IK ACTION: ACCEPTING NEW GOAL");
 	double * jt_st_goal;
 	bool flag;
 	ik_goal_.position.x = goal->x;
@@ -95,7 +93,6 @@ void ArticulatedAction::ikCB(const articulated::ikGoalConstPtr &goal)
 	}
 	else 
 	{
-		ROS_ERROR_STREAM("IK SOLUTION IS INACCURATE OR DOES NOT EXIST");
 		ik_as_.setPreempted();
 	}
 }
@@ -122,11 +119,11 @@ void ArticulatedAction::ikFB()
 	ik_error_.position.y = ik_result_.y - ik_goal_.position.y;
 	ik_error_.position.z = ik_result_.z - ik_goal_.position.z;
 	ik_as_.setSucceeded(ik_result_);
-	ROS_ERROR_STREAM("IK SUCCESS");
-	ROS_ERROR_STREAM("----------");
-	ROS_ERROR_STREAM("position");
+	ROS_INFO("IK ACTION: SUCCESS");
+	ROS_INFO("----------");
+	ROS_INFO("position");
 	ROS_ERROR_STREAM(ee_pose_.position);
-	ROS_ERROR_STREAM("error");
+	ROS_INFO("error");
 	ROS_ERROR_STREAM(ik_error_.position);
 
 }

@@ -69,24 +69,30 @@ Visualization Manager:
           Value: true
         ee:
           Value: true
-        link1:
+        gripper:
           Value: true
-        link2:
+        joint1:
+          Value: true
+        joint2:
+          Value: true
+        slide:
           Value: true
         world:
           Value: true
       Marker Scale: 0.100000001
       Name: TF
       Show Arrows: false
-      Show Axes: false
-      Show Names: false
+      Show Axes: true
+      Show Names: true
       Tree:
         world:
           base:
-            link1:
-              link2:
-                ee:
-                  {}
+            slide:
+              joint1:
+                joint2:
+                  ee:
+                    gripper:
+                      {}
       Update Interval: 0
       Value: true
     - Alpha: 1
@@ -99,17 +105,17 @@ Visualization Manager:
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
-        base:
+        joint1:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        link1:
+        joint2:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        link2:
+        slide:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -120,6 +126,14 @@ Visualization Manager:
       Update Interval: 0
       Value: true
       Visual Enabled: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: visualization_marker
+      Name: Marker
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -145,7 +159,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 0.379724979
+      Distance: 0.965240359
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1

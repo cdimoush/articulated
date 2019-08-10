@@ -26,8 +26,10 @@ class SerialCom:
 					x = self._stepper_goals[i] - self._stepper_states[i]
 					if x != 0: 
 						#Shorter Delay for stepper 1
-						if i == 1:
+						if i == 0:
 							rospy.Rate(450).sleep()
+						elif i == 1:
+							rospy.Rate(350).sleep()
 						else:
 							rospy.Rate(25).sleep()
 						if abs(x) >= self.dq:
@@ -43,6 +45,9 @@ class SerialCom:
 
 							self._pub.publish(receive_msg)	
 						else:
+							self._stepper_states[i] = 0
+							self._stepper_goals[i] = 0
+
 							goal_msg = serial_msg()
 							goal_msg.micro_id = i
 							goal_msg.topic = "step_goal"
@@ -50,12 +55,12 @@ class SerialCom:
 							self._pub.publish(goal_msg)
 
 						
-			else:
+			'''else:
 				for i in range(3):
 					if self._stepper_states[i] != 0:
 						self._stepper_states[i] = 0
 						self._stepper_goals[i] = 0
-				rospy.Rate(500).sleep()
+				rospy.Rate(500).sleep()'''
 
 	def sendMsgCallback(self, send_msg):
 		#Intercept arduino_msg

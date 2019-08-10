@@ -20,6 +20,19 @@ void MechCalc::buildMech()
 	nh_.getParam("/articulated/stepper/2/y", stepper2_.coord[1]);
 	nh_.getParam("/articulated/stepper/2/hub", stepper2_.hub);
 	nh_.getParam("/articulated/stepper/2/spr", stepper2_.spr);
+
+	//IF ROBOT IS USING GRIPPER EXTENT LINK 2
+	//JOINT 2 --> GRIPPER FINGERS
+	bool gripper_bool;
+	nh_.getParam("articulated/gripper/bool", gripper_bool);
+	if (gripper_bool)
+	{
+		float gripper_transform;
+    	nh_.getParam("articulated/gripper/transform", gripper_transform);
+		link2_ = link2_ + gripper_transform;
+		ROS_ERROR_STREAM("link2 length: ");
+		ROS_ERROR_STREAM(link2_);
+	}
 	
 
 }
@@ -121,6 +134,7 @@ geometry_msgs::Pose MechCalc::forwardKinematics(sensor_msgs::JointState jt)
 
 std::tuple<double *, bool> MechCalc::inverseKinematics(geometry_msgs::Pose ee_pos_goal, double step_angle[3])
 {
+	bool flag = false; //RAISE FLAG IF IK FAILS ANYWHERE IN FUNCTION
 	double q[3];
 	double q_planar[2];
 	geometry_msgs::Pose ee_pos_current = forwardKinematics(joint_state_);
@@ -133,14 +147,144 @@ std::tuple<double *, bool> MechCalc::inverseKinematics(geometry_msgs::Pose ee_po
 	sensor_msgs::JointState joint_state_goal;
 	joint_state_goal.position.resize(3);
 
-	//Solve Z
+	//SOLVE Z
+	//-------
 	double delta_z = ee_pos_goal.position.z - ee_pos_current.position.z;
 	joint_state_goal.position[0] = q[0] + delta_z/stepper0_.hub;
+		
+	//SOLVE / CHECK PLANAR
+	//---------------------
+	sensor_msgs::JointState jt_planar = ikPlanar(ee_pos_goal, joint_state_);
+	joint_state_goal.position[1] = jt_planar.position[1];
+	joint_state_goal.position[2] = jt_planar.position[2];
 
-	//Solve Planar
+	//check accuracy planar jt_state 
+	double ik_acc = 0.015;
+	bool acc_flag[2];
+	int acc_correction_attempts = 5;
+	geometry_msgs::Pose ee_pos_ik = forwardKinematics(joint_state_goal);
+	if (fabs(ee_pos_ik.position.x - ee_pos_goal.position.x) > ik_acc) acc_flag[0] = true;
+	if (fabs(ee_pos_ik.position.y - ee_pos_goal.position.y) > ik_acc) acc_flag[1] = true;
+	if (acc_flag[0] || acc_flag[1])
+	{
+		
+		flag = true;
+		for (int i=1; i < acc_correction_attempts+1; i ++)
+		{
+			ROS_ERROR_STREAM("Ik Solver: Correction Attempt");
+			//Try ik with an intermediate step
+			geometry_msgs::Pose ee_pos_int = ee_pos_current;
+			geometry_msgs::Pose ee_pos_diff;
+			ee_pos_diff.position.x = ee_pos_goal.position.x - ee_pos_current.position.x;
+			ee_pos_diff.position.y = ee_pos_goal.position.y - ee_pos_current.position.y;
+
+			ee_pos_int.position.x = ee_pos_int.position.x + ee_pos_diff.position.x / 2; 
+			//Determine initial ik y solution was above / below goal
+			int j = acc_correction_attempts;
+			if(ee_pos_ik.position.y > ee_pos_goal.position.y)
+			{
+				ee_pos_int.position.y = ee_pos_int.position.y + ee_pos_diff.position.y * (j-i)/((j*2)+1);
+			}
+			else
+			{
+				ee_pos_int.position.y = ee_pos_int.position.y + ee_pos_diff.position.y * (j+i)/((j*2)+1);
+			}
+
+			jt_planar = ikPlanar(ee_pos_int, joint_state_);
+			jt_planar = ikPlanar(ee_pos_goal, jt_planar);
+			joint_state_goal.position[1] = jt_planar.position[1];
+			joint_state_goal.position[2] = jt_planar.position[2];
+	
+			ee_pos_ik = forwardKinematics(joint_state_goal);
+			if (fabs(ee_pos_ik.position.x - ee_pos_goal.position.x) < ik_acc) acc_flag[0] = false;
+			if (fabs(ee_pos_ik.position.y - ee_pos_goal.position.y) < ik_acc) acc_flag[1] = false;
+			if (!acc_flag[0] && !acc_flag[1])
+			{
+				flag=false;
+				break;
+			}
+			ROS_ERROR_STREAM("FAILED CORRECTION");
+		}
+	}
+	//RETURN FAILURE..... EXITING IK NOW	
+	if (flag)
+	{
+		ROS_ERROR_STREAM("IK FLAG");
+		ROS_ERROR_STREAM("---------------");
+		ROS_ERROR_STREAM("ik joint state not accurate");
+		ROS_ERROR_STREAM("X ERROR: ");
+		ROS_ERROR_STREAM(ee_pos_ik.position.x - ee_pos_goal.position.x);
+		ROS_ERROR_STREAM("Y ERROR: ");
+		ROS_ERROR_STREAM(ee_pos_ik.position.y - ee_pos_goal.position.y);
+		ROS_ERROR_STREAM("Z ERROR: ");
+		ROS_ERROR_STREAM(ee_pos_ik.position.z - ee_pos_goal.position.z);
+		return std::make_tuple(step_angle_goal, true);
+	}
+	
+
+	//TURN JOINT ANGLES INTO STEPPER ANGLES
+	//-------------------------------------
+	std::tie(step_angle_goal, flag) = calcStepperAngles(joint_state_goal, 1000, 0.0001);
+	if (flag)
+	{
+		ROS_ERROR_STREAM("IK FLAG");
+		ROS_ERROR_STREAM("---------------");
+		ROS_ERROR_STREAM("Could not solve for stepper angles");
+		
+	}
+	for (int i = 1; i < 3; i++)
+	{
+		if (fabs(step_angle_goal[i]) > M_PI/2 )
+		{
+			ROS_ERROR_STREAM("IK FLAG");
+			ROS_ERROR_STREAM("---------------");
+			ROS_ERROR_STREAM("calculated goal angle for stepper " << i << " is " << step_angle_goal[i]);
+			ROS_ERROR_STREAM("value is too LARGE");
+			flag = true;
+			return std::make_tuple(step_angle_goal, true);
+		}
+	}
+	
+	//CHECK IF CALCULATED JOINT STATES PRODUCE DESIRED EE POS (withing ik accuracy)
+	//Raise flag if accuracy is not achieved
+	//This time the check is done for the stepper angles produced 
+	joint_state_goal = calcJointState(step_angle_goal);
+	ee_pos_ik = forwardKinematics(joint_state_goal);
+	if (fabs(ee_pos_ik.position.x - ee_pos_goal.position.x) > ik_acc) flag = true;
+	if (fabs(ee_pos_ik.position.y - ee_pos_goal.position.y) > ik_acc) flag = true;
+	if (fabs(ee_pos_ik.position.z - ee_pos_goal.position.z) > ik_acc) flag = true;
+	//return failure
+	if (flag)
+	{
+		ROS_ERROR_STREAM("IK FLAG");
+		ROS_ERROR_STREAM("---------------");
+		ROS_ERROR_STREAM("IK stepper angles incorrect");
+		ROS_ERROR_STREAM("X ERROR: ");
+		ROS_ERROR_STREAM(ee_pos_ik.position.x - ee_pos_goal.position.x);
+		ROS_ERROR_STREAM("Y ERROR: ");
+		ROS_ERROR_STREAM(ee_pos_ik.position.y - ee_pos_goal.position.y);
+		ROS_ERROR_STREAM("Z ERROR: ");
+		ROS_ERROR_STREAM(ee_pos_ik.position.z - ee_pos_goal.position.z);
+		
+		
+		return std::make_tuple(step_angle_goal, true);
+	}
+	//IK SUCCESS
+	return std::make_tuple(step_angle_goal, false);
+}
+
+sensor_msgs::JointState MechCalc::ikPlanar(geometry_msgs::Pose ee_pos_goal, sensor_msgs::JointState jt_in)
+{
+	double q_planar[2];
+	sensor_msgs::JointState jt_planar;
+	jt_planar.position.resize(3);
+	q_planar[0] = jt_in.position[1];
+	q_planar[1] = jt_in.position[2];
+
 	Eigen::VectorXd delta_theta(2);
 	Eigen::VectorXd delta_x(2);
 	Eigen::VectorXd delta_pos(2);
+	geometry_msgs::Pose ee_pos_current = forwardKinematics(jt_in);
 	delta_pos[0] = ee_pos_goal.position.x - ee_pos_current.position.x;
 	delta_pos[1] = ee_pos_goal.position.y - ee_pos_current.position.y;
 
@@ -162,6 +306,10 @@ std::tuple<double *, bool> MechCalc::inverseKinematics(geometry_msgs::Pose ee_po
 	steps = round(delta_max/step_size);
 
 	delta_x = delta_pos / steps;
+
+	
+	sensor_msgs::JointState jt_bug; //DEBUG VARIABLES
+	jt_bug.position.resize(3);
 	for (int i = 0; i < steps; i ++)
 	{
 		//Get Jacobian / Inverse
@@ -171,62 +319,21 @@ std::tuple<double *, bool> MechCalc::inverseKinematics(geometry_msgs::Pose ee_po
 		delta_theta = j_inv * delta_x;
 		q_planar[0] += delta_theta[0];
 		q_planar[1] += delta_theta[1];
+
+		//DEBUG
+		//--------
+		//ROS_ERROR_STREAM("DEBUG MSG");
+		//
+		//jt_bug.position[0] = joint_state_goal.position[0];
+		//jt_bug.position[1] = q_planar[0];
+		//jt_bug.position[2] = q_planar[1];
+		//geometry_msgs::Pose ee_bug = forwardKinematics(jt_bug);
+		//ROS_ERROR_STREAM(ee_bug.position);
 	}
 
-	q[1] = q_planar[0];
-	q[2] = q_planar[1];
-	joint_state_goal.position[1] = q[1];
-	joint_state_goal.position[2] = q[2];
-
-	//CHECK IF CALCULATED JOINT STATES PRODUCE DESIRED EE POS (withing ik accuracy)
-	//Raise flag if accuracy is not achieved  
-	double ik_acc = 0.01;
-	bool flag = false;
-	geometry_msgs::Pose ee_pos_ik = forwardKinematics(joint_state_goal);
-	//check x, y, and z 
-	if (fabs(ee_pos_ik.position.x - ee_pos_goal.position.x) > ik_acc) flag = true;
-	if (fabs(ee_pos_ik.position.y - ee_pos_goal.position.y) > ik_acc) flag = true;
-	if (fabs(ee_pos_ik.position.z - ee_pos_goal.position.z) > ik_acc) flag = true;
-	//RETURN FAILURE..... EXITING IK NOW
-	if (flag)
-	{
-		ROS_ERROR_STREAM("IK joint state incorrect");
-		return std::make_tuple(step_angle_goal, true);
-	}
-	//IF NOT FAILURE THEN CALCULATE STEPPER ANGLES FROM JOINT ANGLES
-	//CHECK IF STEPPER ANGLES ARE IN DESIRED RANGE
-	std::tie(step_angle_goal, flag) = calcStepperAngles(joint_state_goal, 1000, 0.0001);
-	for (int i = 1; i < 3; i++)
-	{
-		if (fabs(step_angle_goal[i]) > M_PI/2 )
-		{
-			ROS_ERROR_STREAM("calculated goal angle for stepper " << i << "is " << step_angle_goal);
-			ROS_ERROR_STREAM("value is too LARGE");
-			flag = true;
-			break;
-		}
-	}
-	if (flag)
-	{
-		ROS_ERROR_STREAM("Could not solve for stepper angles");
-		return std::make_tuple(step_angle_goal, true);
-	}
-	//CHECK IF CALCULATED JOINT STATES PRODUCE DESIRED EE POS (withing ik accuracy)
-	//Raise flag if accuracy is not achieved
-	//This time the check is done for the stepper angles produced 
-	joint_state_goal = calcJointState(step_angle_goal);
-	ee_pos_ik = forwardKinematics(joint_state_goal);
-	if (fabs(ee_pos_ik.position.x - ee_pos_goal.position.x) > ik_acc) flag = true;
-	if (fabs(ee_pos_ik.position.y - ee_pos_goal.position.y) > ik_acc) flag = true;
-	if (fabs(ee_pos_ik.position.z - ee_pos_goal.position.z) > ik_acc) flag = true;
-	//return failure
-	if (flag)
-	{
-		ROS_ERROR_STREAM("IK stepper angles incorrect");
-		return std::make_tuple(step_angle_goal, true);
-	}
-	//IK SUCCESS
-	return std::make_tuple(step_angle_goal, false);
+	jt_planar.position[1] = q_planar[0];
+	jt_planar.position[2] = q_planar[1];
+	return jt_planar;
 }
 
 Eigen::MatrixXd MechCalc::buildJacobian(double q[2])
@@ -261,6 +368,8 @@ std::tuple<double *, bool> MechCalc::calcStepperAngles(sensor_msgs::JointState j
 	{
 		theta = q[1] + q[2];
 	}
+	//ROS_ERROR_STREAM("THETA --> ");
+	//ROS_ERROR_STREAM(theta);
 	double f[2];
 	double s[2][2] = {{q[1], -M_PI/2}, {q[1], M_PI/2}};
 	double s_new;

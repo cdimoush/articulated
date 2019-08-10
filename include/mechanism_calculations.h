@@ -35,6 +35,7 @@ private:
 	//functions
 	void buildMech();
 	sensor_msgs::JointState calcJointState(double step_angle[3]);
+	sensor_msgs::JointState ikPlanar(geometry_msgs::Pose ee_pos_goal, sensor_msgs::JointState jt_in);
 	geometry_msgs::Pose forwardKinematics(sensor_msgs::JointState jt);
 	Eigen::MatrixXd buildJacobian(double q[2]);
 	std::tuple<double *, bool> calcStepperAngles(sensor_msgs::JointState jt, int max_it, double accuracy);
